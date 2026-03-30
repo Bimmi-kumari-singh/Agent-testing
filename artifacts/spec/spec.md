@@ -1,444 +1,524 @@
-# Product Specification: Authentication System
-
-## 1. Executive Summary
-
-This document outlines the product specification for the Authentication System, a central identity service designed to provide secure and robust user identity verification for various applications. Its primary purpose is to ensure that only authorized users can access protected application resources, safeguarding sensitive data and maintaining compliance with industry security standards. The system will encompass functionalities such as user registration, login authentication, password management, Multi-Factor Authentication (MFA), session management, and account lockout mechanisms, integrating seamlessly with web applications, mobile applications, and APIs. By implementing this system, we aim to enhance overall security, protect user data, provide a smooth user experience, and ensure scalability for a growing user base.
-
-## 2. Goals and Objectives
-
-The primary goals of the Authentication System are derived directly from key business objectives, prioritized as follows:
-
-**P1 - Critical Objectives:**
-
-*   **Secure Access:** To ensure that only authenticated and authorized users can gain entry to the system and its associated resources.
-    *   *Acceptance Criteria:* Less than 0.1% of login attempts by unauthorized users are successful; no critical vulnerabilities related to authentication bypass identified in security audits.
-*   **Data Protection:** To protect all sensitive user credentials and other system data from unauthorized access, compromise, or disclosure.
-    *   *Acceptance Criteria:* All stored passwords are securely hashed with industry-standard algorithms; no instances of sensitive data exposure through authentication vulnerabilities reported.
-*   **Compliance:** To adhere strictly to industry security best practices and standards, including but not limited to the OWASP Top 10.
-    *   *Acceptance Criteria:* 100% compliance with defined OWASP Top 10 security principles for authentication identified in security audits prior to launch; all relevant security policies are documented and followed.
-
-**P2 - High Importance Objectives:**
-
-*   **User Experience:** To provide users with a smooth, intuitive, and secure login and registration experience that minimizes friction while upholding security standards.
-    *   *Acceptance Criteria:* Average login response time is less than 2 seconds for 95% of users; user feedback surveys indicate high satisfaction (e.g., >80% positive sentiment) regarding login/registration process.
-*   **Scalability:** To design and implement an authentication service capable of supporting a large and growing number of users and authentication requests without degradation in performance or security.
-    *   *Acceptance Criteria:* System demonstrates ability to handle 10,000+ concurrent users with no more than 10% increase in average login response time; system design supports horizontal scaling and load balancing.
-
-## 3. Target Users
-
-The Authentication System is designed to serve a diverse group of users and integrated systems:
-
-*   **End Users:** Individuals who will create accounts, log in, manage their passwords, and utilize multi-factor authentication to access protected web and mobile applications.
-*   **Application Developers:** Teams responsible for integrating their web and mobile applications with the Authentication System for user identity verification and token validation.
-*   **API Consumers:** Services or applications that will interact with the Authentication System to validate tokens for secure API access.
-*   **Security Team:** Stakeholders who define and enforce security policies, ensuring the system meets compliance and protection standards.
-*   **Product Owner:** Defines and prioritizes authentication requirements, ensuring alignment with business objectives.
-*   **DevOps Team:** Responsible for the deployment, monitoring, and maintenance of the Authentication System's infrastructure.
-
-## 4. Functional Requirements
-
-### FR-100: User Registration
-
-**FR-101: Account Creation with User Provided Information**
-*   The system SHALL allow new users to create accounts by providing their email, a password, and their name.
-*   *Acceptance Criteria:* Upon successful submission and validation, a new user account entry MUST be created in the system database containing the provided email, a hashed password, and the user's name.
-*   `[DETERMINISTIC]`
-
-**FR-102: Email Format Validation**
-*   The system SHALL validate that the provided email address conforms to a standard email format (e.g., `user@example.com`).
-*   *Acceptance Criteria:* If the email format is invalid, the system MUST display an error message to the user, and account creation SHALL be prevented.
-*   `[DETERMINISTIC]`
-
-**FR-103: Password Policy Enforcement during Registration**
-*   The system SHALL enforce the defined password policy (as specified in FR-340) during user registration.
-*   *Acceptance Criteria:* If the provided password does not meet all criteria specified in FR-341 through FR-345, the system MUST prevent account creation and display specific error messages indicating which policy requirements were not met.
-*   `[DETERMINISTIC]`
-
-**FR-104: Email Verification for Account Activation**
-*   The system SHALL require email verification to activate a newly registered account.
-*   *Acceptance Criteria:* After registration, an activation link MUST be sent to the user's provided email address. The account SHALL remain in a 'pending' state until the user clicks the verification link within a specified timeframe (e.g., 24 hours), upon which the account status changes to 'active'.
-*   `[DETERMINISTIC]`
-
-### FR-200: User Login
-
-**FR-201: Credential Submission and Validation**
-*   The system SHALL authenticate registered users based on their submitted email and password.
-*   *Acceptance Criteria:* Upon submission of email and password, the system MUST compare the provided password against the securely hashed password stored for the corresponding email.
-*   `[DETERMINISTIC]`
-
-**FR-202: Login Success**
-*   If the submitted credentials are valid, the system SHALL grant login access and generate an authentication token or session.
-*   *Acceptance Criteria:* A valid authentication token (e.g., JWT) or session ID MUST be issued to the user's client, indicating successful authentication.
-*   `[DETERMINISTIC]`
-
-**FR-203: Login Failure and Error Message Display**
-*   If the submitted credentials are invalid, the system SHALL deny login access and display a generic error message.
-*   *Acceptance Criteria:* A generic "Invalid credentials" or similar error message MUST be displayed to the user without indicating which specific credential (email or password) was incorrect. No token or session ID SHALL be issued.
-*   `[DETERMINISTIC]`
-
-**FR-204: Account Lockout Integration for Failed Attempts**
-*   The system SHALL integrate with the account lockout mechanism (FR-600) to prevent brute-force attacks during login.
-*   *Acceptance Criteria:* If a user exceeds the defined number of failed login attempts (FR-601), their account MUST be temporarily locked as per FR-602, and subsequent login attempts SHALL be denied until the lockout is resolved.
-*   `[DETERMINISTIC]`
-
-### FR-300: Password Management
-
-#### FR-330: Password Reset (Forgot Password)
-
-**FR-331: Initiate Password Reset**
-*   The system SHALL provide a "Forgot Password" functionality that allows users to initiate a password reset process by providing their registered email address.
-*   *Acceptance Criteria:* Upon submission of a valid registered email address, the system MUST acknowledge the request (e.g., "If an account exists, a reset link has been sent") without confirming account existence.
-*   `[DETERMINISTIC]`
-
-**FR-332: Secure Password Reset Link Delivery**
-*   The system SHALL send a unique, time-limited password reset link to the user's registered email address.
-*   *Acceptance Criteria:* A unique URL containing a secure, randomly generated token MUST be sent to the user's registered email address. This link MUST expire after a defined duration (e.g., 15 minutes) and be single-use.
-*   `[DETERMINISTIC]`
-
-**FR-333: Password Reset Link Validation**
-*   The system SHALL validate the integrity and validity of the password reset link upon access.
-*   *Acceptance Criteria:* If the reset link is expired, already used, or invalid, the system MUST deny access to the password reset form and instruct the user to initiate a new request.
-*   `[DETERMINISTIC]`
-
-**FR-334: New Password Setting with Policy Enforcement**
-*   The system SHALL allow the user to set a new password, enforcing the defined password policy (FR-340).
-*   *Acceptance Criteria:* The user interface for setting a new password MUST only be accessible via a valid reset link. The system MUST validate the new password against FR-341 through FR-345 before allowing the update.
-*   `[DETERMINISTIC]`
-
-**FR-335: Password Update in System**
-*   Upon successful policy validation, the system SHALL update the user's password with the new, securely hashed password.
-*   *Acceptance Criteria:* The old password hash in the database MUST be replaced with the hash of the new password. The user MUST then be able to log in successfully with the new password.
-*   `[DETERMINISTIC]`
-
-#### FR-340: Password Policy
-
-**FR-341: Minimum Password Length**
-*   User passwords SHALL have a minimum length of 8 characters.
-*   *Acceptance Criteria:* Any password less than 8 characters MUST be rejected during registration and password reset.
-*   `[DETERMINISTIC]`
-
-**FR-342: Uppercase Character Requirement**
-*   User passwords SHALL include at least one uppercase letter (A-Z).
-*   *Acceptance Criteria:* Passwords without at least one uppercase letter MUST be rejected.
-*   `[DETERMINISTIC]`
-
-**FR-343: Lowercase Character Requirement**
-*   User passwords SHALL include at least one lowercase letter (a-z).
-*   *Acceptance Criteria:* Passwords without at least one lowercase letter MUST be rejected.
-*   `[DETERMINISTIC]`
-
-**FR-344: Numeric Character Requirement**
-*   User passwords SHALL include at least one number (0-9).
-*   *Acceptance Criteria:* Passwords without at least one numeric character MUST be rejected.
-*   `[DETERMINISTIC]`
-
-**FR-345: Special Character Requirement**
-*   User passwords SHALL include at least one special character (e.g., !, @, #, $, %, ^, &, *).
-*   *Acceptance Criteria:* Passwords without at least one special character from the approved set MUST be rejected.
-*   `[DETERMINISTIC]`
-
-### FR-400: Multi-Factor Authentication (MFA)
-
-**FR-401: Support for Multiple MFA Methods**
-*   The system SHALL support Email OTP, SMS OTP, and Authenticator App (e.g., Google Authenticator) as optional Multi-Factor Authentication methods.
-*   *Acceptance Criteria:* The system MUST provide user interfaces and backend logic to allow users to enroll and utilize each of the specified MFA methods.
-*   `[DETERMINISTIC]`
-
-**FR-402: MFA Authentication Flow**
-*   When MFA is enabled, the system SHALL prompt the user for a second factor after successful primary credential validation.
-*   *Acceptance Criteria:* After entering correct email and password, the user MUST be redirected to an MFA challenge screen.
-*   `[DETERMINISTIC]`
-
-**FR-403: OTP Generation and Delivery**
-*   For Email OTP and SMS OTP, the system SHALL generate a time-based One-Time Password (OTP) and securely deliver it to the user's registered email or phone number.
-*   *Acceptance Criteria:* A unique, time-limited (e.g., 5 minutes) OTP MUST be generated and sent via email or SMS. The OTP MUST be at least 6 digits long.
-*   `[DETERMINISTIC]`
-
-**FR-404: OTP Validation**
-*   The system SHALL validate the submitted OTP against the generated OTP for the active MFA challenge.
-*   *Acceptance Criteria:* If the user enters a correct and unexpired OTP, access MUST be granted. If the OTP is incorrect or expired, access MUST be denied, and an appropriate error message displayed.
-*   `[DETERMINISTIC]`
-
-**FR-405: Authenticator App Integration**
-*   The system SHALL integrate with standard Authenticator Apps (e.g., Google Authenticator) for MFA using Time-based One-Time Passwords (TOTP).
-*   *Acceptance Criteria:* During enrollment, the system MUST display a QR code or secret key for the user to scan/enter into their authenticator app. During login, the system MUST validate the TOTP provided by the user against the expected value for their account.
-*   `[DETERMINISTIC]`
-
-### FR-500: Session Management
-
-**FR-501: Token-based Authentication**
-*   The system SHALL implement token-based authentication (e.g., JWT) for managing user sessions.
-*   *Acceptance Criteria:* Upon successful login, the system MUST issue a cryptographically signed token (e.g., JWT) containing necessary user identity information, and this token MUST be used for subsequent API requests for authentication.
-*   `[DETERMINISTIC]`
-
-**FR-502: Session/Token Expiration**
-*   The system SHALL implement expiration for issued authentication tokens/sessions.
-*   *Acceptance Criteria:* Each token MUST contain an expiration timestamp (`exp` claim for JWTs). Upon token expiration, the user MUST be required to re-authenticate or refresh their token.
-*   `[DETERMINISTIC]`
-
-**FR-503: User-initiated Logout Functionality**
-*   The system SHALL provide functionality for users to explicitly log out of their active session.
-*   *Acceptance Criteria:* Upon a user initiating a logout, their active session MUST be terminated (e.g., by invalidating the token on the server-side or client-side removal), and they MUST be redirected to the login page.
-*   `[DETERMINISTIC]`
-
-**FR-504: Automatic Logout after Inactivity**
-*   The system SHALL automatically log out users after a predefined period of inactivity.
-*   *Acceptance Criteria:* If no user activity is detected for a configurable duration (e.g., 30 minutes), the user's session MUST be terminated, requiring re-authentication for continued access.
-*   `[DETERMINISTIC]`
-
-### FR-600: Account Lockout
-
-**FR-601: Failed Login Attempt Threshold**
-*   The system SHALL implement an account lockout mechanism that triggers after 5 consecutive failed login attempts for a single user account.
-*   *Acceptance Criteria:* On the 5th consecutive failed login attempt within a predefined time window (e.g., 10 minutes), the user account's status MUST change to 'locked'.
-*   `[DETERMINISTIC]`
-
-**FR-602: Temporary Account Lockout Duration**
-*   A locked account SHALL remain temporarily locked for a duration of 30 minutes.
-*   *Acceptance Criteria:* Any login attempts to a locked account within the 30-minute lockout period MUST be denied, and an error message indicating the account is locked MUST be displayed. After 30 minutes, the account MUST automatically revert to an 'active' state.
-*   `[DETERMINISTIC]`
-
-**FR-603: Account Unlock Mechanisms**
-*   The system SHALL provide mechanisms for users to unlock their accounts via email verification or for administrators to manually unlock accounts.
-*   *Acceptance Criteria:* For user-initiated unlock, a unique verification link MUST be sent to the user's registered email, similar to password reset, which, when clicked, unlocks the account. An administrative interface MUST exist to allow authorized personnel to manually unlock user accounts.
-*   `[DETERMINISTIC]`
-
-### FR-700: Access Control Integration Interface
-
-**FR-701: Identity Token Issuance**
-*   The Authentication System SHALL issue an identity token containing the authenticated user's unique identifier and potentially role information to consuming applications.
-*   *Acceptance Criteria:* Upon successful authentication and token generation, the issued token MUST contain a unique `User ID` and optionally a `Role` claim, enabling consuming applications to make access control decisions.
-*   `[DETERMINISTIC]`
-
-**FR-702: Token Validation Endpoint**
-*   The Authentication System SHALL provide an endpoint for external applications to validate issued authentication tokens.
-*   *Acceptance Criteria:* Consuming applications MUST be able to send an issued token to a dedicated endpoint (e.g., `/api/v1/auth/validate`) and receive a response indicating the token's validity and potentially the associated user's identity.
-*   `[DETERMINISTIC]`
-
-## 5. Non-Functional Requirements
-
-### NFR-100: Security
-
-**NFR-101: OWASP Top 10 Compliance**
-*   The Authentication System MUST comply with the current OWASP Top 10 security guidelines.
-*   *Acceptance Criteria:* A comprehensive security audit MUST be performed prior to launch, demonstrating that no critical or high-severity vulnerabilities related to the OWASP Top 10 are present in the system.
-*   `[DETERMINISTIC]`
-
-**NFR-102: Secure Password Hashing**
-*   The system SHALL use robust, industry-standard cryptographic hashing algorithms for storing user passwords, such as bcrypt or Argon2.
-*   *Acceptance Criteria:* All stored user passwords MUST be hashed using either bcrypt or Argon2 with an appropriate work factor (e.g., bcrypt cost factor of 12 or higher). Passwords MUST NOT be stored in plaintext.
-*   `[DETERMINISTIC]`
-
-**NFR-103: HTTPS Encryption for All Communications**
-*   All communication channels between clients (web/mobile applications) and the Authentication System, and between the Authentication System and integrated services, SHALL be encrypted using HTTPS/TLS 1.2 or higher.
-*   *Acceptance Criteria:* All API endpoints for the Authentication System MUST only be accessible via HTTPS. Network traffic MUST be inspected to confirm full TLS encryption.
-*   `[DETERMINISTIC]`
-
-**NFR-104: Protection Against Brute-Force Attacks**
-*   The system SHALL implement comprehensive protection against brute-force attacks.
-*   *Acceptance Criteria:* This MUST include the account lockout mechanism (FR-600) and rate-limiting on login attempts (e.g., 10 attempts per IP address per minute) to prevent dictionary attacks or password spraying.
-*   `[DETERMINISTIC]`
-
-**NFR-105: Session Hijacking Protection**
-*   The system SHALL employ measures to prevent session hijacking.
-*   *Acceptance Criteria:* All authentication tokens (e.g., JWTs) MUST be transmitted via secure channels (HTTPS) and stored securely (e.g., HTTP-only cookies, local storage with appropriate security measures). Tokens MUST be invalidated upon logout or unusual activity detection.
-*   `[DETERMINISTIC]`
-
-### NFR-200: Performance
-
-**NFR-201: Login Response Time**
-*   The system SHALL process user login requests with a response time of less than 2 seconds.
-*   *Acceptance Criteria:* Under normal operating conditions, 95% of user login requests MUST complete within 2 seconds, measured from request initiation to token issuance.
-*   `[DETERMINISTIC]`
-
-**NFR-202: Concurrent Users**
-*   The system SHALL support at least 10,000 concurrent active users.
-*   *Acceptance Criteria:* Performance tests MUST demonstrate stable operation with 10,000 simulated concurrent users without degradation in login response time beyond the NFR-201 target.
-*   `[DETERMINISTIC]`
-
-**NFR-203: System Availability**
-*   The Authentication System SHALL maintain an availability of 99.9% uptime.
-*   *Acceptance Criteria:* The system MUST demonstrate 99.9% availability, excluding planned maintenance, over a continuous 30-day monitoring period. This equates to no more than 43 minutes and 49 seconds of downtime per month.
-*   `[DETERMINISTIC]`
-
-### NFR-300: Scalability
-
-**NFR-301: Horizontal Scaling Support**
-*   The Authentication System SHALL be designed to support horizontal scaling.
-*   *Acceptance Criteria:* The architecture MUST allow for additional instances of the authentication service to be deployed and integrated via a load balancer, increasing capacity without requiring code changes.
-*   `[DETERMINISTIC]`
-
-**NFR-302: Load Balancing Integration**
-*   The system SHALL be capable of integrating with standard load balancing solutions.
-*   *Acceptance Criteria:* The service MUST be stateless where possible, or session affinity MUST be manageable by the load balancer, to distribute incoming requests across multiple instances effectively.
-*   `[DETERMINISTIC]`
-
-**NFR-303: Microservice Architecture**
-*   The Authentication System SHALL be implemented as a microservice.
-*   *Acceptance Criteria:* The authentication functionality MUST be encapsulated within a single, independently deployable service that communicates via well-defined APIs.
-*   `[DETERMINISTIC]`
-
-### NFR-400: Reliability
-
-**NFR-401: Backup Authentication Servers**
-*   The system SHALL include provisions for backup authentication servers.
-*   *Acceptance Criteria:* At least one redundant authentication server instance MUST be deployed in a separate availability zone to serve as a backup.
-*   `[DETERMINISTIC]`
-
-**NFR-402: Automatic Failover**
-*   The system SHALL implement automatic failover capabilities.
-*   *Acceptance Criteria:* In the event of a primary server failure, the system MUST automatically switch to a backup server within 5 minutes, ensuring minimal service interruption.
-*   `[DETERMINISTIC]`
-
-**NFR-403: Monitoring and Logging**
-*   The system SHALL implement comprehensive monitoring and logging for operational health and security events.
-*   *Acceptance Criteria:* Critical system metrics (e.g., CPU, memory, network I/O, error rates) MUST be logged and monitored in real-time. All authentication attempts (success/failure), account lockouts, and password resets MUST be logged with relevant details (timestamp, user ID, IP address).
-*   `[DETERMINISTIC]`
-
-## 6. Use Case Analysis
-
-### Main Use Case Diagram: Authentication System
+## Product Specification: Authentication System
+
+---
+
+### 1. Executive Summary
+
+This document outlines the product specification for a new, secure Authentication System. The primary goal is to establish a central identity service that verifies user identities and controls access to protected application resources across web applications, mobile applications, and APIs. This system will mitigate risks associated with unauthorized access and data breaches by implementing robust security measures, including secure registration, login, password management, optional multi-factor authentication (MFA), and comprehensive session management. By adhering to industry best practices and security standards like OWASP Top 10, the system aims to provide a reliable, scalable, and secure user experience, safeguarding sensitive data while supporting a growing user base.
+
+---
+
+### 2. Goals and Objectives
+
+The implementation of the Authentication System is driven by the following key objectives:
+
+*   **Secure Access:** MUST ensure that only authenticated and authorized users can access sensitive application resources and data.
+*   **Data Protection:** SHALL protect all sensitive user credentials and related identity data against unauthorized access, compromise, or misuse.
+*   **Compliance:** MUST adhere to established security best practices and industry standards, including the OWASP Top 10, to minimize vulnerabilities.
+*   **User Experience:** SHALL provide a smooth, intuitive, and secure authentication experience for end-users, minimizing friction while maintaining high security.
+*   **Scalability:** MUST be capable of supporting a large and growing number of users and concurrent authentication requests without degradation in performance.
+
+---
+
+### 3. Target Users
+
+The Authentication System is designed to serve the following primary user groups:
+
+*   **End Users:** Individuals who will register, log in, and manage their accounts to access various integrated web and mobile applications.
+*   **Application Developers:** Teams responsible for integrating their applications (web, mobile, APIs) with the central Authentication System.
+*   **Security Team:** Responsible for defining, auditing, and enforcing security policies and ensuring compliance.
+*   **DevOps Team:** Responsible for the deployment, monitoring, maintenance, and operational integrity of the Authentication System infrastructure.
+
+---
+
+### 4. Functional Requirements (FR-XXX)
+
+#### 4.1. User Registration
+
+**FR-001: New User Account Creation**
+The system SHALL allow new users to create an account by providing an email address, password, and name.
+*   **Acceptance Criteria:**
+    *   The system successfully creates a new user account upon submission of valid details and successful email verification.
+    *   A unique user ID is generated and associated with the new account.
+    *   The user receives confirmation of successful account creation.
+[DETERMINISTIC]
+
+**FR-002: Email Format Validation**
+The system MUST validate that the provided email address adheres to a standard email format (e.g., `user@domain.com`).
+*   **Acceptance Criteria:**
+    *   The system rejects registration attempts with invalid email formats and displays an appropriate error message.
+    *   The system accepts registration attempts with valid email formats.
+[DETERMINISTIC]
+
+**FR-003: Password Policy Enforcement (Registration)**
+The system MUST enforce the defined password policy during user registration.
+*   **Acceptance Criteria:**
+    *   Registration attempts with passwords not meeting the policy are rejected, and specific policy violations are communicated to the user.
+    *   Registration attempts with passwords meeting the policy are accepted.
+[DETERMINISTIC]
+
+**FR-004: Email Uniqueness Validation**
+The system MUST ensure that each registered email address is unique.
+*   **Acceptance Criteria:**
+    *   An attempt to register with an already existing email address results in an error message indicating the email is taken.
+    *   Registration with a unique email address proceeds successfully.
+[DETERMINISTIC]
+
+**FR-005: Email Verification**
+The system SHALL require email verification to activate a new user account.
+*   **Acceptance Criteria:**
+    *   Upon initial registration, an email containing a unique verification link is sent to the user's provided email address.
+    *   The user's account status remains "unverified" or "pending" until the verification link is clicked.
+    *   Clicking the verification link successfully activates the account and updates its status to "active."
+    *   Expired or invalid verification links result in an appropriate error message and prompt to resend the link.
+[DETERMINISTIC]
+
+#### 4.2. User Login
+
+**FR-006: Credential-Based Login**
+The system SHALL allow registered users to log in using their verified email address and password.
+*   **Acceptance Criteria:**
+    *   Upon successful verification of credentials, the system issues an authentication token/session.
+    *   The user is redirected to the intended protected application resource.
+[DETERMINISTIC]
+
+**FR-007: Invalid Credential Handling**
+The system MUST display a generic error message for invalid login attempts (e.g., "Invalid email or password").
+*   **Acceptance Criteria:**
+    *   Login attempts with incorrect email or password result in a consistent, non-specific error message.
+    *   No information revealing whether the email exists or if only the password was incorrect is exposed.
+[DETERMINISTIC]
+
+**FR-008: Account Lockout Integration (Login)**
+The system SHALL integrate with the Account Lockout mechanism (FR-019) to prevent access to locked accounts.
+*   **Acceptance Criteria:**
+    *   Login attempts to an account previously locked due to excessive failed attempts are rejected with a specific message indicating the account is locked.
+    *   The system correctly tracks and applies the lockout status for affected accounts.
+[DETERMINISTIC]
+
+#### 4.3. Password Management
+
+**FR-009: Forgot Password Initiative**
+The system SHALL allow users to initiate a password reset process if they forget their password.
+*   **Acceptance Criteria:**
+    *   Upon request, a unique password reset link with a defined expiration time is sent to the user's registered email address.
+    *   The system confirms that a reset email has been sent without revealing if the email exists if it's not found.
+[DETERMINISTIC]
+
+**FR-010: Password Reset via Link**
+The system SHALL allow a user to set a new password using a valid, non-expired password reset link.
+*   **Acceptance Criteria:**
+    *   Clicking a valid reset link presents the user with a form to enter and confirm a new password.
+    *   Upon successful submission of a new password meeting policy, the old password is invalidated, and the new one is hashed and stored.
+    *   The user receives confirmation of a successful password change.
+[DETERMINISTIC]
+
+**FR-011: Password Policy Enforcement (Reset)**
+The system MUST enforce the defined password policy (FR-013) when a user sets a new password during a reset.
+*   **Acceptance Criteria:**
+    *   Password reset attempts with new passwords not meeting the policy are rejected, and specific policy violations are communicated.
+    *   Password reset attempts with new passwords meeting the policy are accepted.
+[DETERMINISTIC]
+
+**FR-012: Expired/Invalid Reset Link Handling**
+The system MUST handle expired or invalid password reset links gracefully.
+*   **Acceptance Criteria:**
+    *   Attempts to use an expired or invalid password reset link result in an error message, prompting the user to initiate a new reset process.
+[DETERMINISTIC]
+
+**FR-013: Password Policy Definition**
+The system SHALL enforce the following minimum password complexity requirements:
+*   Minimum 8 characters in length.
+*   At least one uppercase letter.
+*   At least one lowercase letter.
+*   At least one number.
+*   At least one special character (e.g., !@#$%^&*).
+*   **Acceptance Criteria:**
+    *   All password creation and update flows validate against these 5 rules.
+    *   The system provides explicit feedback when a password violates any of these rules.
+[DETERMINISTIC]
+
+**FR-014: Logged-in User Password Change**
+The system SHALL allow a logged-in user to change their password.
+*   **Acceptance Criteria:**
+    *   The user is prompted to enter their current password, and the new password (twice).
+    *   The system validates the current password against the stored hash.
+    *   The new password MUST adhere to the password policy (FR-013).
+    *   Upon successful change, the user's session remains active, and a confirmation message is displayed.
+    *   Attempts with incorrect current password or new password violating policy are rejected with specific error messages.
+[DETERMINISTIC]
+
+#### 4.4. Multi-Factor Authentication (MFA)
+
+**FR-015: Optional MFA Enrollment**
+The system SHALL allow users to optionally enroll in Multi-Factor Authentication (MFA).
+*   **Acceptance Criteria:**
+    *   Users can initiate MFA setup from their account settings.
+    *   The system provides options to choose an MFA method (Email OTP, SMS OTP, Authenticator App).
+    *   Upon successful enrollment, MFA is active for that user's subsequent logins.
+[DETERMINISTIC]
+
+**FR-016: Email OTP MFA Method**
+The system SHALL support Email OTP (One-Time Password) as an MFA method.
+*   **Acceptance Criteria:**
+    *   When MFA is enabled, upon successful primary credential verification, an OTP is sent to the user's registered email address.
+    *   The system prompts the user to enter the OTP within a specified timeframe (e.g., 5 minutes).
+    *   Valid OTP entry grants access; invalid or expired OTP entry denies access.
+[DETERMINISTIC]
+
+**FR-017: SMS OTP MFA Method**
+The system SHALL support SMS OTP as an MFA method.
+*   **Acceptance Criteria:**
+    *   When MFA is enabled, upon successful primary credential verification, an OTP is sent via SMS to the user's registered phone number.
+    *   The system prompts the user to enter the OTP within a specified timeframe (e.g., 5 minutes).
+    *   Valid OTP entry grants access; invalid or expired OTP entry denies access.
+[DETERMINISTIC]
+
+**FR-018: Authenticator App MFA Method**
+The system SHALL support Authenticator App (e.g., Google Authenticator) as an MFA method.
+*   **Acceptance Criteria:**
+    *   During enrollment, the system displays a QR code or secret key for the user to configure their authenticator app.
+    *   Upon successful primary credential verification, the system prompts the user to enter a time-based OTP (TOTP) from their authenticator app.
+    *   Valid TOTP entry grants access; invalid or expired TOTP entry denies access.
+[DETERMINISTIC]
+
+#### 4.5. Session Management
+
+**FR-019: Token-Based Authentication**
+The system SHALL issue secure, cryptographically signed tokens (e.g., JWT) or session IDs upon successful authentication.
+*   **Acceptance Criteria:**
+    *   A valid token/session ID is generated and returned to the client upon successful login.
+    *   Each token/session ID contains necessary claims for authorization and user identification.
+    *   Tokens/Session IDs are signed to prevent tampering.
+[DETERMINISTIC]
+
+**FR-020: Session Expiration**
+The system SHALL manage session expiration based on a configurable duration (e.g., 1 hour for access tokens, 7 days for refresh tokens).
+*   **Acceptance Criteria:**
+    *   Access tokens automatically become invalid after their defined expiry time.
+    *   Requests with an expired access token are rejected, requiring re-authentication or refresh token usage.
+[DETERMINISTIC]
+
+**FR-021: Explicit Logout Functionality**
+The system SHALL provide functionality for users to explicitly log out of their session.
+*   **Acceptance Criteria:**
+    *   Upon logout, the user's current session token/ID is immediately invalidated on the server-side.
+    *   The user is redirected to the login page or a logged-out confirmation page.
+    *   Subsequent requests with the invalidated token/ID are rejected.
+[DETERMINISTIC]
+
+**FR-022: Automatic Logout on Inactivity**
+The system SHALL automatically log out users after a configurable period of inactivity (e.g., 30 minutes).
+*   **Acceptance Criteria:**
+    *   After the inactivity period, the user's session is terminated, and the token/session ID is invalidated.
+    *   The user is prompted to re-authenticate upon subsequent interaction with the application.
+[DETERMINISTIC]
+
+#### 4.6. Account Lockout
+
+**FR-023: Failed Login Attempt Counter**
+The system SHALL maintain a counter for failed login attempts associated with each user account.
+*   **Acceptance Criteria:**
+    *   The counter increments for each unsuccessful login attempt for a specific email address.
+    *   The counter resets to zero upon a successful login.
+[DETERMINISTIC]
+
+**FR-024: Account Locking Threshold**
+The system MUST temporarily lock an account after 5 consecutive failed login attempts within a defined period (e.g., 15 minutes).
+*   **Acceptance Criteria:**
+    *   Upon reaching the threshold, the account's status is updated to "locked."
+    *   Subsequent login attempts for a locked account are rejected with an "Account Locked" message.
+[DETERMINISTIC]
+
+**FR-025: Account Unlock Mechanism**
+The system SHALL provide mechanisms for a locked account to be unlocked.
+*   **Acceptance Criteria:**
+    *   A locked account automatically unlocks after a configured duration (e.g., 30 minutes) *or*
+    *   The user can initiate an email-based verification process to unlock the account *or*
+    *   An administrator can manually unlock the account via an internal tool.
+[DETERMINISTIC]
+
+---
+
+### 5. Non-Functional Requirements (NFR-XXX)
+
+#### 5.1. Security
+
+**NFR-001: OWASP Top 10 Compliance**
+The system MUST adhere to the security principles outlined in the OWASP Top 10 to protect against common web application vulnerabilities.
+*   **Acceptance Criteria:**
+    *   Regular security audits and penetration testing confirm compliance with OWASP Top 10 guidelines (e.g., no SQL Injection, XSS, broken authentication vulnerabilities detected).
+    *   All development practices follow secure coding guidelines.
+[DETERMINISTIC]
+
+**NFR-002: Secure Password Hashing**
+The system MUST use strong, industry-standard cryptographic hashing algorithms (e.g., bcrypt, Argon2) for storing user passwords.
+*   **Acceptance Criteria:**
+    *   Passwords are never stored in plain text.
+    *   Verification confirms the use of a computationally expensive, salted hashing algorithm with a sufficient work factor.
+[DETERMINISTIC]
+
+**NFR-003: HTTPS Encryption**
+All communication between the client (web/mobile application) and the Authentication System, and between internal services, MUST be encrypted using HTTPS/TLS.
+*   **Acceptance Criteria:**
+    *   All API endpoints and web interfaces enforce HTTPS connections.
+    *   Attempts to access resources via HTTP are automatically redirected to HTTPS or rejected.
+[DETERMINISTIC]
+
+**NFR-004: Brute-Force Protection**
+The system MUST implement protection mechanisms against brute-force attacks, including account lockout (FR-024) and rate limiting.
+*   **Acceptance Criteria:**
+    *   The account lockout mechanism correctly triggers and prevents further login attempts.
+    *   Rate limiting is applied to login endpoints, limiting the number of requests from a single IP address over a timeframe.
+[DETERMINISTIC]
+
+#### 5.2. Performance
+
+**NFR-005: Login Response Time**
+The system SHALL achieve a login response time of less than 2 seconds for 95% of requests.
+*   **Acceptance Criteria:**
+    *   Load testing demonstrates an average login response time below 2 seconds under peak load conditions.
+    *   Monitoring metrics confirm consistent performance in production.
+[DETERMINISTIC]
+
+**NFR-006: Concurrent User Support**
+The system SHALL support at least 10,000 concurrent active users.
+*   **Acceptance Criteria:**
+    *   Load testing simulates 10,000 concurrent users without significant performance degradation or system failures.
+    *   The system maintains stability and responsiveness under this load.
+[DETERMINISTIC]
+
+#### 5.3. Scalability
+
+**NFR-007: Horizontal Scalability**
+The Authentication System MUST be designed to support horizontal scaling.
+*   **Acceptance Criteria:**
+    *   The system architecture allows for stateless services or distributed state management, enabling additional instances to be added without code changes.
+    *   Successful deployment and operation with multiple horizontally scaled instances are demonstrated.
+[DETERMINISTIC]
+
+**NFR-008: Load Balancing Support**
+The system MUST be compatible with standard load balancing solutions.
+*   **Acceptance Criteria:**
+    *   The system integrates seamlessly with common load balancers (e.g., AWS ELB, Nginx) without requiring special configurations.
+    *   Traffic is evenly distributed across instances by the load balancer.
+[DETERMINISTIC]
+
+**NFR-009: Microservice Architecture**
+The Authentication System SHALL be implemented as a microservice, promoting independent deployment and scaling.
+*   **Acceptance Criteria:**
+    *   The authentication service operates as an independent deployable unit with a well-defined API.
+    *   Changes to the authentication service can be deployed without affecting other parts of the larger application ecosystem.
+[DETERMINISTIC]
+
+#### 5.4. Reliability
+
+**NFR-010: High Availability**
+The system SHALL maintain 99.9% uptime (excluding scheduled maintenance).
+*   **Acceptance Criteria:**
+    *   System monitoring reports an availability of 99.9% or higher over a 3-month period.
+    *   Automatic failover mechanisms ensure continuous service during component failures.
+[DETERMINISTIC]
+
+**NFR-011: Data Backup and Recovery**
+User authentication data MUST be regularly backed up with a defined recovery point objective (RPO) and recovery time objective (RTO).
+*   **Acceptance Criteria:**
+    *   Daily backups of all critical authentication data are performed.
+    *   A successful data recovery test from backups is demonstrated within the defined RTO.
+[DETERMINISTIC]
+
+**NFR-012: Comprehensive Monitoring and Logging**
+The system SHALL implement comprehensive monitoring and logging for operational health and security events.
+*   **Acceptance Criteria:**
+    *   Critical metrics (e.g., login success/failure rates, response times, error rates) are actively monitored via dashboards.
+    *   All security-relevant events (e.g., failed logins, account lockouts, password changes) are logged with sufficient detail for auditing and incident response.
+    *   Alerts are triggered for predefined thresholds or critical events.
+[DETERMINISTIC]
+
+---
+
+### 6. Use Case Analysis
+
+#### 6.1. Use Case Diagram
 
 ```plantuml
 @startuml
 left to right direction
 
 actor "End User" as User
-actor "Web Application" as WebApp
-actor "Mobile Application" as MobileApp
-actor "API Gateway" as APIGateway
-actor "Authentication System" as AuthSystem
+actor "Application" as App
+actor "Security Administrator" as Admin
 
-rectangle "Authentication System Boundary" {
-    AuthSystem -- (Register Account)
-    AuthSystem -- (Log In)
-    AuthSystem -- (Reset Password)
-    AuthSystem -- (Manage MFA)
-    AuthSystem -- (Log Out)
-    AuthSystem -- (Provide Identity for Access Control)
-
-    (Register Account) .> (Email Verification) : include
-    (Log In) .> (Validate Credentials) : include
-    (Log In) .> (Account Lockout) : extend
-    (Log In) .> (MFA Challenge) : extend
-    (Reset Password) .> (Email Verification) : include
-    (Manage MFA) .> (Email OTP) : extend
-    (Manage MFA) .> (SMS OTP) : extend
-    (Manage MFA) .> (Authenticator App) : extend
+rectangle "Authentication System" {
+  usecase "Register Account" as UC_Register
+  usecase "Verify Email" as UC_VerifyEmail
+  usecase "Log In" as UC_Login
+  usecase "Reset Password" as UC_ResetPassword
+  usecase "Change Password" as UC_ChangePassword
+  usecase "Enable/Disable MFA" as UC_MFA_Manage
+  usecase "Perform MFA" as UC_MFA_Perform
+  usecase "Log Out" as UC_Logout
+  usecase "Unlock Account" as UC_UnlockAccount
 }
 
-User -- (Register Account)
-User -- (Log In)
-User -- (Reset Password)
-User -- (Manage MFA)
-User -- (Log Out)
+User --> UC_Register : (Initiates)
+User --> UC_VerifyEmail : (Activates)
+User --> UC_Login : (Requests)
+User --> UC_ResetPassword : (Requests)
+User --> UC_ChangePassword : (Updates)
+User --> UC_MFA_Manage : (Configures)
+User --> UC_MFA_Perform : (Provides OTP)
+User --> UC_Logout : (Requests)
+User --> UC_UnlockAccount : (Requests)
 
-(Log In) -- WebApp
-(Log In) -- MobileApp
-(Provide Identity for Access Control) -- WebApp
-(Provide Identity for Access Control) -- MobileApp
-(Provide Identity for Access Control) -- APIGateway
+App --> UC_Login : (Delegates Auth)
+App --> UC_MFA_Perform : (Delegates Auth)
+App --> UC_Logout : (Delegates Auth)
+
+Admin --> UC_UnlockAccount : (Manually)
+
+UC_Register ..> UC_VerifyEmail : <<extends>>
+UC_Login ..> UC_MFA_Perform : <<extends>>
+UC_Login ..> UC_UnlockAccount : <<extends>> (if account is locked)
+UC_ResetPassword ..> UC_VerifyEmail : <<extends>> (for email link)
+UC_UnlockAccount ..> UC_VerifyEmail : <<extends>> (for email link)
+
 
 @enduml
 ```
 
-### Use Case Descriptions:
+#### 6.2. Detailed Use Cases
 
-1.  **Register Account:**
-    *   **Actor:** End User
-    *   **Description:** The user provides their email, password, and name to create a new account within the system. The system validates the input and initiates an email verification process.
-    *   **Flow:**
-        1.  User navigates to the registration page.
-        2.  User enters email, password, and name.
-        3.  System validates email format and password policy.
-        4.  System sends an email verification link.
-        5.  User clicks the verification link to activate the account.
-        6.  System marks the account as active.
+**UC-001: New User Successfully Registers and Verifies Email**
 
-2.  **Log In:**
-    *   **Actor:** End User, Web Application, Mobile Application
-    *   **Description:** The user enters their credentials (email and password) to gain access to the application. The system authenticates the user and, if successful, issues an authentication token.
-    *   **Flow:**
-        1.  User provides email and password.
-        2.  System validates credentials.
-        3.  **[EXTEND]** If credentials fail multiple times, system triggers **Account Lockout**.
-        4.  **[EXTEND]** If MFA is enabled, system triggers **MFA Challenge**.
-        5.  If credentials are valid (and MFA passed, if applicable), system generates and issues an authentication token.
-        6.  Application grants user access based on the token.
+*   **Actor:** End User
+*   **Preconditions:** User has a valid, unique email address.
+*   **Postconditions:** User account is created and activated. User can log in.
+*   **Main Flow:**
+    1.  User navigates to the registration page.
+    2.  User enters Email, Password (meeting policy), and Name.
+    3.  User submits registration form.
+    4.  System validates input (email format, password policy, email uniqueness).
+    5.  System creates a pending account and sends a verification email to the provided address.
+    6.  System displays a confirmation message, instructing the user to check their email.
+    7.  User receives the verification email and clicks the unique link.
+    8.  System verifies the link and activates the user account.
+    9.  System confirms account activation to the user.
+*   **Alternate Flows:**
+    *   **AF-001a: Invalid Email Format:** System rejects input at step 4, displays "Invalid email format."
+    *   **AF-001b: Password Policy Violation:** System rejects input at step 4, displays specific password policy failures.
+    *   **AF-001c: Email Already Registered:** System rejects input at step 4, displays "Email already registered."
+    *   **AF-001d: Expired/Invalid Verification Link:** At step 8, system rejects link, displays "Verification link expired/invalid," and offers to resend.
 
-3.  **Reset Password:**
-    *   **Actor:** End User
-    *   **Description:** The user, having forgotten their password, requests a password reset. The system sends a reset link to their registered email, allowing them to set a new password.
-    *   **Flow:**
-        1.  User clicks "Forgot Password" link.
-        2.  User enters registered email.
-        3.  System sends a time-limited, unique password reset link to the email.
-        4.  User accesses the link and sets a new password.
-        5.  System validates the new password against policy and updates it.
+**UC-005: Registered User Successfully Logs In**
 
-4.  **Manage MFA:**
-    *   **Actor:** End User
-    *   **Description:** The user enrolls in or authenticates using various Multi-Factor Authentication methods (Email OTP, SMS OTP, Authenticator App).
-    *   **Flow (Enrollment - simplified):**
-        1.  User chooses an MFA method (Email OTP, SMS OTP, or Authenticator App).
-        2.  System guides user through setup (e.g., sending test OTP, displaying QR code for Authenticator App).
-        3.  User confirms setup.
-        4.  System enables MFA for the chosen method.
-    *   **Flow (Authentication - see Log In MFA Challenge):**
-        1.  After primary login, system requests OTP.
-        2.  User provides OTP from chosen method.
-        3.  System validates OTP.
+*   **Actor:** End User
+*   **Preconditions:** User has an active, verified account.
+*   **Postconditions:** User is authenticated, a session token is issued, and access to protected resources is granted.
+*   **Main Flow:**
+    1.  User navigates to the login page.
+    2.  User enters registered Email and Password.
+    3.  User submits login form.
+    4.  System validates credentials.
+    5.  (If MFA is enabled) System initiates MFA challenge (UC-008).
+    6.  System generates a secure session token.
+    7.  System sends the session token to the client.
+    8.  User is redirected to the intended application resource.
+*   **Alternate Flows:**
+    *   **AF-005a: Invalid Credentials:** At step 4, system rejects credentials, increments failed login counter, and displays "Invalid email or password."
+    *   **AF-005b: Account Locked:** At step 4, system identifies account as locked (due to FR-024), displays "Account locked. Please reset password or try again later."
+    *   **AF-005c: MFA Required (UC-008 detailed below):** At step 5, system proceeds to MFA flow.
 
-5.  **Log Out:**
-    *   **Actor:** End User
-    *   **Description:** The user explicitly terminates their active session with the application.
-    *   **Flow:**
-        1.  User clicks "Logout" button.
-        2.  Application informs the Authentication System (or invalidates client-side token).
-        3.  Authentication System (if stateful) invalidates the session.
-        4.  User is redirected to the login page.
+**UC-008: User Logs In with MFA Enabled**
 
-6.  **Provide Identity for Access Control:**
-    *   **Actor:** Web Application, Mobile Application, API Gateway
-    *   **Description:** After successful authentication, the Authentication System provides an identity token (e.g., JWT) that consuming applications use to verify the user's identity and make access control decisions.
-    *   **Flow:**
-        1.  User authenticates successfully with the Auth System.
-        2.  Auth System issues a signed token to the client.
-        3.  Client sends the token with requests to WebApp/MobileApp/APIGateway.
-        4.  WebApp/MobileApp/APIGateway validates the token's signature and claims with the Auth System (or independently if self-contained).
-        5.  WebApp/MobileApp/APIGateway uses the User ID and any role claims from the token to enforce granular access control.
+*   **Actor:** End User
+*   **Preconditions:** User has MFA enabled for their account; primary login credentials successfully verified.
+*   **Postconditions:** User is authenticated, a session token is issued, and access to protected resources is granted.
+*   **Main Flow:**
+    1.  (From UC-005, step 5) System identifies MFA is enabled for the user's account.
+    2.  System determines the user's preferred MFA method (e.g., Email OTP, SMS OTP, Authenticator App).
+    3.  System generates an OTP and sends it via the chosen method (e.g., email, SMS) or prompts for Authenticator App OTP.
+    4.  System presents an OTP input screen to the user.
+    5.  User retrieves the OTP and enters it into the input screen.
+    6.  User submits the OTP.
+    7.  System validates the OTP (correctness, expiration).
+    8.  (If valid) System generates a secure session token.
+    9.  System sends the session token to the client.
+    10. User is redirected to the intended application resource.
+*   **Alternate Flows:**
+    *   **AF-008a: Invalid/Expired OTP:** At step 7, system rejects OTP, displays "Invalid or expired OTP," and allows retry or resend.
+    *   **AF-008b: Too Many OTP Attempts:** After N invalid OTP attempts, MFA challenge is temporarily locked, forcing the user to re-initiate login.
 
-## 7. Constraints, Assumptions, and Risks
+**UC-010: User Initiates Password Reset for Forgotten Password**
 
-### Constraints
+*   **Actor:** End User
+*   **Preconditions:** User has a registered account.
+*   **Postconditions:** Password reset link is sent to user's email.
+*   **Main Flow:**
+    1.  User clicks "Forgot Password" on the login page.
+    2.  User enters their registered Email address.
+    3.  User submits the request.
+    4.  System validates the email format.
+    5.  System checks if the email exists in the database.
+    6.  (If email exists) System generates a unique, time-limited password reset token.
+    7.  System sends an email containing the reset link (with the token) to the user's email address.
+    8.  System displays a generic confirmation message (e.g., "If an account exists, a password reset link has been sent.").
+*   **Alternate Flows:**
+    *   **AF-010a: Invalid Email Format:** At step 4, system rejects input, displays "Invalid email format."
+    *   **AF-010b: Email Not Found:** At step 5, system proceeds to step 8 without sending an email (to prevent account enumeration).
 
-*   **Technology Stack:** The Authentication System MUST be implemented as a microservice, supporting horizontal scaling and load balancing.
-*   **Security Standards:** The system MUST adhere to OWASP Top 10 security guidelines and use HTTPS for all communications.
-*   **Integration:** The system MUST integrate with existing or future web applications, mobile applications, and API Gateways.
-*   **Password Policy:** The system MUST enforce the minimum password policy specified in FR-340.
+**UC-011: User Successfully Resets Password via Link**
 
-### Assumptions
+*   **Actor:** End User
+*   **Preconditions:** User has received a valid, non-expired password reset link.
+*   **Postconditions:** User's password is updated, and the reset token is invalidated.
+*   **Main Flow:**
+    1.  User clicks the password reset link from their email.
+    2.  System validates the reset token (existence, expiration).
+    3.  System presents a "Set New Password" form.
+    4.  User enters and confirms a New Password (meeting policy).
+    5.  User submits the new password.
+    6.  System validates the New Password against the policy (FR-013).
+    7.  System hashes and updates the user's password in the database.
+    8.  System invalidates the used reset token.
+    9.  System displays a "Password successfully reset" confirmation and provides a link to the login page.
+*   **Alternate Flows:**
+    *   **AF-011a: Expired/Invalid Reset Link:** At step 2, system rejects the link, displays "Reset link expired/invalid," and suggests initiating a new reset.
+    *   **AF-011b: New Password Policy Violation:** At step 6, system rejects the new password, displays specific policy violations.
 
-*   **Email Service Availability:** An external email service provider (SMTP) will be available and reliable for sending account verification and password reset emails.
-*   **SMS Provider Availability (if applicable):** If SMS OTP is enabled, a reliable SMS gateway service will be available and integrated.
-*   **Network Infrastructure:** The underlying network infrastructure will provide sufficient bandwidth and low latency for communication between the Authentication System, client applications, and integrated services.
-*   **Application-Level Access Control:** Consuming applications are responsible for implementing their own authorization logic based on the identity information provided by the Authentication System (e.g., User ID, roles in tokens). The Authentication System is not an Authorization System.
-*   **Client-Side Security:** Client applications (web, mobile) will implement appropriate secure storage and handling of authentication tokens to prevent client-side vulnerabilities.
+---
 
-### Risks and Mitigation
+### 7. Constraints, Assumptions, and Risks
 
-*   **Brute Force Attacks:**
-    *   **Description:** Malicious actors attempt to gain unauthorized access by trying numerous password combinations.
-    *   **Mitigation:** Implement account lockout mechanisms (FR-600) and API rate limiting (NFR-104) on login attempts to deter and block such attacks.
-*   **Password Breaches:**
-    *   **Description:** Stored user passwords could be compromised through database breaches or weak hashing.
-    *   **Mitigation:** Enforce strong password policies (FR-340) and utilize robust, industry-standard secure password hashing algorithms (e.g., bcrypt, Argon2) with appropriate salt and work factors (NFR-102).
-*   **Session Hijacking:**
-    *   **Description:** An attacker gains control of a legitimate user's session to impersonate them.
-    *   **Mitigation:** Ensure all communications are encrypted with HTTPS/TLS (NFR-103), use secure, cryptographically signed tokens (NFR-105), implement token expiration (FR-502), and provide explicit logout functionality (FR-503).
-*   **Unauthorized Access (General):**
-    *   **Description:** An attacker bypasses authentication or exploits vulnerabilities to gain access to protected resources.
-    *   **Mitigation:** Implement Multi-Factor Authentication (FR-400) as an optional security layer for users. Adhere strictly to OWASP Top 10 guidelines (NFR-101) and conduct regular security audits and penetration testing.
-*   **Scalability Limitations:**
-    *   **Description:** The system struggles to handle a growing number of users or high concurrent load, leading to performance degradation or outages.
-    *   **Mitigation:** Design with a microservice architecture (NFR-303) supporting horizontal scaling (NFR-301) and deploy with load balancing (NFR-302) from the outset. Implement robust monitoring (NFR-403) to proactively address load issues.
+#### 7.1. Constraints
+
+*   **Technology Stack:** Initial deployment will target a cloud-native environment (e.g., AWS, Azure, GCP) using containerization (Docker, Kubernetes) for scalability.
+*   **Security Standards:** MUST comply with all relevant data privacy regulations (e.g., GDPR, CCPA) for user data handling, though specific legal counsel will define exact requirements.
+*   **External Service Dependency:** Reliance on external email service providers (e.g., SendGrid, SES) and SMS gateway providers for OTP delivery.
+*   **Timeline:** Initial MVP delivery within 6 months.
+
+#### 7.2. Assumptions
+
+*   **Email Service Availability:** An email sending service will be available and reliable for email verification, password resets, and MFA OTPs.
+*   **SMS Gateway Availability:** An SMS gateway will be available for SMS OTPs, if enabled.
+*   **Integrator Readiness:** Consuming applications (web, mobile, APIs) will be ready to integrate with the Authentication System's API and token-based authentication model.
+*   **Infrastructure Support:** Adequate infrastructure resources (compute, storage, network) will be provisioned and managed by the DevOps team to meet performance and scalability requirements.
+*   **Security Team Collaboration:** The Security Team will provide clear and timely policy decisions and participate in security reviews.
+
+#### 7.3. Risks and Mitigation
+
+*   **R-001: Brute Force Attacks**
+    *   **Description:** Attackers repeatedly attempt to guess passwords, leading to unauthorized access.
+    *   **Mitigation:** Implement account lockout after N failed attempts (FR-024). Implement rate limiting on login attempts per IP address/user.
+*   **R-002: Password Breaches**
+    *   **Description:** Stored passwords could be compromised if the database is breached.
+    *   **Mitigation:** Use strong, salted, and computationally expensive hashing algorithms (e.g., Argon2, bcrypt) (NFR-002). Never store plain text passwords. Implement strict access controls for the database.
+*   **R-003: Session Hijacking**
+    *   **Description:** An attacker gains unauthorized access to a user's session.
+    *   **Mitigation:** Enforce HTTPS/TLS for all communication (NFR-003). Use secure, short-lived tokens. Implement strict cookie security flags (HttpOnly, Secure, SameSite). Require re-authentication for sensitive actions.
+*   **R-004: Unauthorized Access (via Phishing/Weak Credentials)**
+    *   **Description:** Users fall victim to phishing, or use weak, easily guessable passwords, leading to account compromise.
+    *   **Mitigation:** Enforce a strong password policy (FR-013). Provide and encourage the use of Multi-Factor Authentication (FR-015). Educate users on security best practices.
+*   **R-005: Denial of Service (DoS) on Authentication Service**
+    *   **Description:** An attack floods the authentication service with requests, making it unavailable.
+    *   **Mitigation:** Implement robust rate limiting at the API Gateway level. Design for horizontal scalability (NFR-007) and deploy behind load balancers (NFR-008). Monitor system health and respond to anomalies quickly (NFR-012).

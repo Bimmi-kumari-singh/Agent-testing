@@ -1,6 +1,6 @@
 # Unit Test Plans
 
 
-## User Story: us_001
+## User Story: us_002
 
-- [Test Plan](.propel/context/tasks/EP-001/us_001/unittest/test_plan_be_backend.md)
+- [Test Plan](.propel/context/tasks/EP-001/us_002/unittest/test_plan_fe_frontend.md)

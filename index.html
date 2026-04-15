@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width,initial-scale=1'>
+  <title>Simple Cards</title>
+  <style>
+    :root{ --bg:#f4f6f8; --card:#fff; --accent:#0b74de; --text:#333; }
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;background:var(--bg);color:var(--text);}
+    .container{max-width:1100px;margin:40px auto;padding:0 16px;}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;}
+    .card{background:var(--card);border-radius:12px;box-shadow:0 6px 18px rgba(12,20,30,0.08);overflow:hidden;display:flex;flex-direction:column;}
+    .card img{width:100%;height:140px;object-fit:cover;display:block;}
+    .card .content{padding:16px;flex:1;display:flex;flex-direction:column;}
+    .card h3{margin:0 0 8px;font-size:1.1rem;}
+    .card p{margin:0 0 12px;flex:1;color:#555;font-size:0.95rem;line-height:1.4;}
+    .card .actions{display:flex;gap:8px;align-items:center;}
+    .btn{padding:8px 12px;border-radius:8px;border:0;background:var(--accent);color:#fff;cursor:pointer;font-weight:600;text-decoration:none;}
+    .btn.secondary{background:#eef4fb;color:var(--accent);border:1px solid rgba(11,116,222,0.12);}
+    @media (max-width:420px){ .card img{height:120px} }
+  </style>
+</head>
+<body>
+  <div class='container'>
+    <h1 style='margin:0 0 24px;font-size:1.6rem'>Card Grid Example</h1>
+    <div class='grid'>
+
+      <article class='card'>
+        <img src='https://via.placeholder.com/600x300?text=Image+1' alt='Image 1'>
+        <div class='content'>
+          <h3>Card Title One</h3>
+          <p>A short description for card one. Use this area to summarize the content or purpose.</p>
+          <div class='actions'>
+            <a class='btn' href='#'>View</a>
+            <a class='btn secondary' href='#'>Share</a>
+          </div>
+        </div>
+      </article>
+
+      <article class='card'>
+        <img src='https://via.placeholder.com/600x300?text=Image+2' alt='Image 2'>
+        <div class='content'>
+          <h3>Card Title Two</h3>
+          <p>Another description for card two. Add any details you'd like visitors to see.</p>
+          <div class='actions'>
+            <a class='btn' href='#'>View</a>
+            <a class='btn secondary' href='#'>Details</a>
+          </div>
+        </div>
+      </article>
+
+      <article class='card'>
+        <img src='https://via.placeholder.com/600x300?text=Image+3' alt='Image 3'>
+        <div class='content'>
+          <h3>Card Title Three</h3>
+          <p>Brief info about card three. This area can hold headings, text, or small lists.</p>
+          <div class='actions'>
+            <a class='btn' href='#'>Open</a>
+            <a class='btn secondary' href='#'>Share</a>
+          </div>
+        </div>
+      </article>
+
+      <article class='card'>
+        <img src='https://via.placeholder.com/600x300?text=Image+4' alt='Image 4'>
+        <div class='content'>
+          <h3>Card Title Four</h3>
+          <p>Card four example. Replace the placeholder images with real images as needed.</p>
+          <div class='actions'>
+            <a class='btn' href='#'>Open</a>
+            <a class='btn secondary' href='#'>Save</a>
+          </div>
+        </div>
+      </article>
+
+      <article class='card'>
+        <img src='https://via.placeholder.com/600x300?text=Image+5' alt='Image 5'>
+        <div class='content'>
+          <h3>Card Title Five</h3>
+          <p>A concise blurb for card five. Good for teasers and short summaries.</p>
+          <div class='actions'>
+            <a class='btn' href='#'>View</a>
+            <a class='btn secondary' href='#'>Share</a>
+          </div>
+        </div>
+      </article>
+
+      <article class='card'>
+        <img src='https://via.placeholder.com/600x300?text=Image+6' alt='Image 6'>
+        <div class='content'>
+          <h3>Card Title Six</h3>
+          <p>Final example card. This layout is responsive and adapts to small screens.</p>
+          <div class='actions'>
+            <a class='btn' href='#'>Explore</a>
+            <a class='btn secondary' href='#'>Share</a>
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</body>
+</html>

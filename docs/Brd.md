@@ -1,3 +1,7 @@
+BRD Index
+
+- Authentication BRD (docs/Authentication_BRD.md) — Centralized Authentication System BRD covering user registration, login, password management, MFA, session management, and security requirements. Version: 1.0 — 2026-04-15
+
 Business Requirements Document (BRD)
 Authentication System
 1. Introduction

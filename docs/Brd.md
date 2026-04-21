@@ -161,18 +161,6 @@ Logout functionality
 
 Automatic logout after inactivity
 
-5.6 Account Lockout
-
-Security protection against brute force attacks.
-
-Rules:
-
-5 failed login attempts
-
-Account temporarily locked
-
-Unlock via email verification or admin action
-
 6. Non-Functional Requirements
 6.1 Security
 

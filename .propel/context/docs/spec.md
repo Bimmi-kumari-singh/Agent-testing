@@ -1,37 +1,42 @@
 # Requirements Specification
 
 ## Feature Goal
-Provide a central, secure Authentication System that replaces ad-hoc auth across applications with a unified identity service that supports user registration, secure login, password management, multi-factor authentication (MFA), token-based session management, and account protection. Current state: multiple apps implement inconsistent auth rules and storage. Desired state: single, auditable, secure authentication service with deterministic, testable behaviors and clear integration contracts.
+Provide a central, secure Authentication System that replaces ad-hoc auth across applications with a unified identity service that supports user registration, secure login, password management, multi-factor authentication (MFA), token-based session management, account protection, and auditable authentication events.  
+Current state: multiple applications implement inconsistent auth rules and storage. Desired state: single, auditable, secure authentication service with deterministic, testable behaviors, clearly defined integration contracts, and optional AI-assisted risk detection for future enhancement.
 
 ## Business Justification
 - Business value and user impact
-  - Reduces security risk by centralizing auth, improving compliance (OWASP alignment) and lowering maintenance cost for integrated applications.
-  - Improves user experience through consistent login/forgot-password flows and optional MFA.
+  - Centralizes authentication to reduce security risk, streamline integrations, and lower maintenance cost.
+  - Improves user experience with consistent registration/login/forgot-password flows and optional MFA.
+  - Enables security and compliance teams to monitor, audit, and enforce policies centrally (OWASP alignment).
 - Integration with existing features
-  - Serves web, mobile, API Gateway, and internal services via standardized token validation (JWT + refresh).
+  - Exposes standard token validation endpoints for web, mobile, API Gateway, and internal services; supports OAuth/OIDC connectors for external IdPs.
 - Problems this solves and for whom
-  - End users: consistent and secure access. Security team: centralized logging, rate-limiting and audit trails. Developers: standardized integration and tokens.
+  - End users: consistent and secure access with predictable recovery flows.
+  - Security team: unified logging, rate-limits, and audit trails.
+  - Developers: consistent token format and integration patterns across products.
 
 ## Feature Scope
 User-visible behavior:
-- Sign up with email verification
-- Login with email + password
-- Password reset via email link
-- Optional MFA via Email OTP, SMS OTP, or authenticator app
-- Token-based session handling (access + refresh)
-- Account lockout + administrative unlock workflows
+- Sign up with email and verification flow
+- Login with email + password (with optional MFA)
+- Password reset via verified email link
+- MFA enrollment and verification (Email OTP, SMS OTP, TOTP)
+- Token-based session handling (access + refresh), logout, inactivity timeout
+- Account lockout after configurable failed attempts and unlock via email/admin
 Technical requirements:
-- Secure password hashing (Argon2 or bcrypt - default Argon2id)
+- Secure password hashing (Argon2id recommended; bcrypt allowed)
 - HTTPS-only endpoints, OWASP controls, rate limiting, and monitoring
-- Configurable retention and TTL parameters (defaults provided)
-- Integration endpoints for API Gateway token validation and external IdP (OAuth/OIDC) connectors
+- Configurable TTLs and thresholds (verification token, access token, refresh token, lockout)
+- Integration endpoints for API Gateway token validation and external IdPs (OAuth/OIDC)
+- Audit logging with configurable retention and PII handling
 
 ### Success Criteria
 - [ ] Login success rate > 95% across measured user population
 - [ ] Login response time < 2s for 95% of auth requests under normal load
-- [ ] System handles 10,000+ concurrent sessions without auth failures attributable to the auth service
+- [ ] System supports 10,000+ concurrent sessions without auth failures attributable to the auth service
 - [ ] No critical OWASP findings in security audit
-- [ ] MFA adoption measured; > 20% of privileged users enabled within 6 months (where applicable)
+- [ ] MFA adoption > 20% of privileged users within 6 months (where applicable)
 
 ## Functional Requirements
 
@@ -40,215 +45,199 @@ Before expanding, list of requirements to generate:
 | FR-ID | Summary |
 |-------|---------|
 | FR-001 | User Registration with email verification |
-| FR-002 | User Login with credential validation |
-| FR-003 | Password Reset (forgot password flow) |
-| FR-004 | Password Policy enforcement |
-| FR-005 | Multi-Factor Authentication (MFA) support |
-| FR-006 | Session Management (access + refresh tokens, logout, inactivity) |
-| FR-007 | Account Lockout and Unlock workflows |
-| FR-008 | API Gateway Token Validation endpoint |
-| FR-009 | Secure Password Storage (Argon2id) |
-| FR-010 | Monitoring, Logging & Audit for auth events |
-| FR-011 | Scalability & High Availability requirements |
-| FR-012 | Rate Limiting & Brute-Force Protection |
-| FR-013 | Data Retention & Privacy Controls (configurable defaults) |
-| FR-014 | Adaptive / Risk-based Authentication (AI candidate, optional) |
+| FR-002 | Email Verification & Account Activation |
+| FR-003 | User Login with credential validation and token issuance |
+| FR-004 | Password Reset (forgot password flow) |
+| FR-005 | Password Policy enforcement |
+| FR-006 | Multi-Factor Authentication (MFA) support |
+| FR-007 | Session Management (access + refresh tokens, logout, inactivity) |
+| FR-008 | Account Lockout and Unlock workflows |
+| FR-009 | Rate Limiting & Brute-Force Protection |
+| FR-010 | Secure Password Storage & Cryptography |
+| FR-011 | API Gateway Token Validation endpoint & Integration |
+| FR-012 | Monitoring, Logging & Audit for auth events |
+| FR-013 | Performance, Scalability & Availability requirements |
+| FR-014 | Adaptive / Risk-based Authentication (AI-Candidate, optional) |
+| FR-015 | Administrative Controls (admin unlock, disable, view audit) |
+| FR-016 | Data Retention & Privacy Controls |
+| FR-017 | Future Integrations: SSO / Social Login / Biometric (UNCLEAR) |
 
-Expand each functional requirement below. Each FR is a MUST and includes acceptance criteria and classification.
+Expand each FR below. Each FR is a MUST and includes acceptance criteria and classification.
 
 - FR-001: [DETERMINISTIC] System MUST allow new users to register an account via email verification.
-  - Description: Registration endpoint accepts Email, Password, FirstName, LastName. Sends verification email with single-use token.
+  - Description: Public endpoint accepts Email, Password, FirstName, LastName. Server validates inputs, enforces password policy, creates a pending account, and sends a single-use verification email link/token.
   - Acceptance Criteria:
     1. Given valid inputs, POST /register returns 202 Accepted and a verification email is queued within 5 seconds.
     2. The verification token is single-use and expires in 24 hours (configurable).
     3. Attempting to register with an existing verified email returns 409 Conflict with "Email already registered".
-    4. Unverified accounts may be resumed by re-sending verification; re-send limit 3 per 24 hours.
+    4. Re-send verification limited to 3 attempts per 24 hours per account; excess returns 429 Too Many Requests.
   - Trigger: User submits registration form.
   - Who benefits: End users, Product team.
-  - Data fields: email, password_hash, user_id, created_date, verification_status.
-  - Notes: Email format validated to RFC 5322. Rate-limited per IP/account.
+  - Failure scenarios: Invalid email format (400), weak password (400), rate limit exceeded (429).
 
-- FR-002: [DETERMINISTIC] System MUST authenticate users via email + password and return access and refresh tokens.
-  - Description: Credential validation with hashed password comparison and optional MFA challenge.
+- FR-002: [DETERMINISTIC] System MUST validate email verification tokens and activate accounts.
+  - Description: GET/POST /verify?token=... validates token, activates account, records verification timestamp, deletes/invalidates token.
+  - Acceptance Criteria:
+    1. Valid token activates account and returns 200 OK; verification timestamp stored.
+    2. Expired or used tokens return 400 Bad Request with clear reason.
+    3. Activation triggers audit event "account.verified" with user_id and actor IP.
+  - Trigger: User clicks verification link.
+  - Postcondition: Account status = Active.
+
+- FR-003: [DETERMINISTIC] System MUST authenticate users via email + password and issue access and refresh tokens.
+  - Description: POST /login validates credentials against stored password hash; if valid and MFA not enabled, issues access_token (JWT) and refresh_token (opaque or JWT depending on design).
   - Acceptance Criteria:
     1. Successful auth returns HTTP 200 and JSON with access_token (JWT, default TTL 15 minutes) and refresh_token (opaque, TTL 30 days).
-    2. Failed auth increments failed-login counters; response for invalid credentials is 401 Unauthorized with generic error "Invalid credentials".
-    3. If MFA enabled for account, successful password validation returns 200 with mfa_required flag; no tokens until MFA verifies.
+    2. Failed auth increments failed-login counters; response is 401 Unauthorized with generic "Invalid credentials".
+    3. If MFA enabled, login response returns 200 with mfa_required: true and no tokens until MFA validated.
     4. Response times for successful logins < 2s for 95% of requests under normal load.
   - Trigger: POST /login with email+password.
-  - Who benefits: End users, integrated apps.
-  - Related FRs: FR-005 (MFA), FR-012 (rate limiting), FR-007 (lockout).
+  - Failure scenarios: Locked accounts (423 Locked), rate-limited IP (429).
 
-- FR-003: [DETERMINISTIC] System MUST provide secure password reset (forgot password) flow.
-  - Description: Request resets send single-use link/token to email; token expiry 1 hour (configurable).
+- FR-004: [DETERMINISTIC] System MUST provide secure password reset (forgot password) flow.
+  - Description: POST /forgot-password generates a single-use, time-limited reset token sent to verified email. POST /reset-password consumes token to set a new password (enforced by policy).
   - Acceptance Criteria:
-    1. Requesting password reset for a registered email results in 202 Accepted and an email with reset link sent within 5 seconds.
-    2. Reset token is single-use and invalid after use or after 1 hour.
-    3. Changing password enforces password policy (FR-004).
-    4. If the token is invalid/expired, endpoint returns 400 with "Invalid or expired reset token".
-  - Trigger: User clicks "Forgot Password" and submits email.
-  - Who benefits: End users, support teams.
-  - Security: Do not reveal whether email exists in UI; respond with 202 in all cases.
+    1. Reset token TTL default 1 hour (configurable); token single-use.
+    2. POST /forgot-password returns 202 Accepted even if email not found (to avoid enumeration).
+    3. Reset attempts limited to 3 per 24 hours per account; excess returns 429.
+    4. Successful reset invalidates existing refresh tokens for the account.
+  - Trigger: User initiates forgot-password.
+  - Security note: Reset links include one-time token and do not contain credentials.
 
-- FR-004: [DETERMINISTIC] System MUST enforce a password policy on creation and update.
-  - Description: Policy includes minimum length and composition; configurable but defaults enforced.
-  - Default Policy (configurable):
-    - Minimum 10 characters
-    - At least one uppercase, one lowercase, one digit, one special character
-    - No reuse of last 5 passwords
+- FR-005: [DETERMINISTIC] System MUST enforce a server-side password policy.
+  - Description: Passwords must meet configured strength rules and be validated server-side at create/reset.
   - Acceptance Criteria:
-    1. Passwords not meeting policy must be rejected with 400 and explicit list of violated rules.
-    2. System rejects any password appearing in denylist of known-breached passwords (integration with haveibeenpwned or local denylist).
-    3. Password history enforced: new password cannot match last 5 hashed passwords.
-  - Trigger: Registration, password reset, password change.
-  - Who benefits: Security team, end users.
+    1. Default policy: minimum 8 characters, 1 uppercase, 1 lowercase, 1 number, 1 special character.
+    2. Attempts to set passwords violating policy return 400 with policy failure details.
+    3. Policy configurable per tenant/environment with documented defaults.
+  - Trigger: Registration or password reset submissions.
 
-- FR-005: [DETERMINISTIC] System MUST support optional MFA using Email OTP, SMS OTP, or Time-based One-Time Password (TOTP) authenticator apps.
-  - Description: MFA enrollment, verification, and recovery flows supported.
-  - Defaults & TTLs:
-    - OTP TTL: 5 minutes (configurable)
-    - OTP length: 6 digits
-    - TOTP standard RFC 6238 compatibility
+- FR-006: [HYBRID] System MUST support Multi-Factor Authentication (MFA) using Email OTP, SMS OTP, and TOTP authenticator apps.
+  - Description: Users can enroll MFA methods; on login, system issues OTP or TOTP challenge and verifies before issuing tokens.
   - Acceptance Criteria:
-    1. User can enroll MFA via settings; enrollment flow provides provisioning QR (TOTP) or sends test OTP.
-    2. MFA verification endpoint validates OTP/TOTP; on success, complete login and issue tokens.
-    3. Recovery codes (10 single-use codes) can be generated and must be stored/displayed once on enrollment.
-    4. Failed OTP attempts counted and subject to rate limiting (FR-012).
-  - Trigger: During login when account has MFA enabled or during enrollment.
-  - Who benefits: End users, security.
+    1. User can enroll/deactivate MFA methods from account settings; enrollment requires verification (OTP or TOTP code).
+    2. OTPs expire after 5 minutes (configurable); max 5 attempts per OTP.
+    3. TOTP verification uses RFC 6238-compatible alg and accepts a configurable clock skew (default ±1 step).
+    4. If MFA is enabled for an account, tokens are only issued after successful MFA verification.
+  - Trigger: Enrollment or login when MFA enabled.
+  - Notes: SMS provider selection and compliance (e.g., region restrictions) documented as integration details.
 
-- FR-006: [DETERMINISTIC] System MUST implement session management using short-lived access tokens and longer-lived refresh tokens, with logout and inactivity handling.
-  - Description:
-    - Access token: JWT, TTL 15 minutes (configurable)
-    - Refresh token: opaque, TTL 30 days (configurable), stored server-side for revocation
-    - Inactivity automatic logout: 30 minutes (configurable) of inactivity invalidates session
+- FR-007: [DETERMINISTIC] System MUST manage sessions using access and refresh tokens, and support logout and inactivity timeouts.
+  - Description: Issue short-lived access tokens and longer-lived refresh tokens; provide endpoints to refresh and revoke tokens and to logout.
   - Acceptance Criteria:
-    1. Access tokens validated by API Gateway; expired tokens return 401.
-    2. Refresh endpoint validates refresh token, rotates it (issue new refresh + access, invalidate old refresh) and enforces refresh rotation policy.
-    3. Logout endpoint revokes both access and refresh tokens immediately and removes session record.
-    4. Inactivity timeout tracked; session marked expired after inactivity TTL and requires re-authentication.
-  - Trigger: Successful authentication, token refresh, logout requests.
-  - Who benefits: All integrated services.
+    1. Access token TTL default 15 minutes; refresh token TTL default 30 days (configurable).
+    2. POST /token/refresh validates refresh_token and issues new access_token; rotation applied to refresh tokens to support revocation.
+    3. POST /logout revokes active refresh tokens and invalidates access tokens server-side where applicable.
+    4. Inactivity timeout configurable; inactive sessions expire and require re-authentication.
+  - Trigger: Successful authentication or token refresh.
+  - Security: Include revocation lists or token introspection support for immediate invalidation.
 
-- FR-007: [DETERMINISTIC] System MUST lock accounts after repeated failed login attempts and provide unlock mechanisms.
-  - Description:
-    - Threshold: 5 failed attempts within 15 minutes locks account for 15 minutes (configurable).
-    - Option to require email verification to unlock or admin unlock.
+- FR-008: [DETERMINISTIC] System MUST implement account lockout and unlock workflows.
+  - Description: After configurable failed attempts (default 5), account temporarily locks; unlock via email verification or administrative action.
   - Acceptance Criteria:
-    1. After 5 failed attempts within 15 minutes, account status = Locked and login returns 423 Locked with a neutral message.
-    2. Locked accounts auto-unlock after 15 minutes; admin can unlock immediately via admin console.
-    3. User may request unlock via email verification link; link TTL = 1 hour.
-  - Trigger: Failed login attempts.
-  - Who benefits: Security operations and end users.
+    1. Default threshold 5 failed attempts within 15 minutes triggers lock for 30 minutes (configurable).
+    2. Unlock via "unlock" link sent to account email or via admin console action.
+    3. Locked accounts return 423 Locked with minimal leak of information.
+  - Trigger: Repeated failed authentication attempts.
+  - Failure scenarios: Attack patterns should trigger escalations/alerts.
 
-- FR-008: [DETERMINISTIC] System MUST expose a Token Validation endpoint for API Gateways and internal services.
-  - Description: Endpoint /introspect or public JWKS endpoint for JWT verification.
+- FR-009: [DETERMINISTIC] System MUST provide rate limiting and brute-force protection per IP and per account.
+  - Description: Enforce layered rate limits for authentication endpoints to mitigate abuse.
   - Acceptance Criteria:
-    1. API Gateway can validate access tokens via introspection (opaque tokens) or verify JWT signature via JWKS within <200ms under normal load.
-    2. Endpoint enforces mutual TLS or API key for introspection requests from trusted gateways.
-    3. Revoked tokens return active=false or appropriate 401 responses.
-  - Trigger: API call arrives at API Gateway requiring authentication.
-  - Who benefits: Integrated applications and API Gateway.
+    1. Per-IP and per-account rate limits applied to /login, /register, /forgot-password, /verify endpoints with configurable thresholds.
+    2. Exceeding thresholds returns 429 Too Many Requests and logs event.
+    3. Rate-limits support dynamic adjustments (configuration & feature toggles).
+  - Trigger: High-frequency requests from same IP/account.
 
-- FR-009: [DETERMINISTIC] System MUST store passwords securely using Argon2id (preferred) or bcrypt with minimum parameters defined.
-  - Description: Password hashing and key management.
+- FR-010: [DETERMINISTIC] System MUST securely store passwords and secrets using approved cryptographic practices.
+  - Description: Passwords hashed with Argon2id (preferred) or bcrypt with strong cost parameters; secrets stored in managed secret store.
   - Acceptance Criteria:
-    1. All persisted passwords stored as salted Argon2id hashes; system configuration documents Argon2 parameters.
-    2. No plaintext passwords are logged or stored.
-    3. Migration strategy present for legacy bcrypt hashes.
-  - Trigger: Registration, password update.
-  - Who benefits: Security & compliance.
+    1. Passwords stored only as salted hashes; never logged nor returned.
+    2. Secret keys loaded from environment/secret manager, never in source.
+    3. Crypto algorithms and parameters documented and reviewable.
+  - Security: Use TLS 1.2+ for all network transport.
 
-- FR-010: [DETERMINISTIC] System MUST provide monitoring, logging and auditable trails for authentication events.
-  - Description: Capture login success/failure, password resets, MFA events, lock/unlock, token issuance/revocation.
+- FR-011: [DETERMINISTIC] System MUST expose an API Gateway token validation endpoint and integrate with external IdPs (OAuth/OIDC).
+  - Description: Provide introspection/validation endpoint and support OIDC flows for external IdPs.
   - Acceptance Criteria:
-    1. Auth events logged with timestamp, user_id (or anonymized where required), event_type, source IP, user agent.
-    2. Logs retained per FR-013 policies and accessible for security investigations within 1 hour.
-    3. Alerts generated for suspicious patterns (e.g., 50 failed logins across accounts from same IP in 15 minutes).
-  - Trigger: Auth-related events.
-  - Who benefits: Security team, SRE.
+    1. API Gateway can call /introspect (or validate JWT) to check token validity and scopes.
+    2. OAuth/OIDC connector supports standard authorization_code flow and maps claims required by relying services.
+    3. Integration documented with required claims and signature verification method (JWKs).
+  - Trigger: API Gateway or external service requests token validation.
 
-- FR-011: [DETERMINISTIC] System MUST support horizontal scaling and high availability.
-  - Description: Stateless API layer, centralized session store (Redis) for refresh token revocation and rate-limiting, multi-AZ deployment.
+- FR-012: [DETERMINISTIC] System MUST log authentication events and provide audit trails with configurable retention.
+  - Description: Log key events: register, verify, login.success, login.failed, password.reset, mfa.enroll, token.refresh, logout, account.lock/unlock.
   - Acceptance Criteria:
-    1. System supports horizontal scaling behind load balancer; adding/removing nodes doesn't require user sessions to be invalidated.
-    2. Redis or equivalent for session/revocation supports replication and failover with RPO < 1 minute.
-    3. System demonstrates 99.9% availability in production (SRE runbook and tests).
-  - Trigger: Deployment and scaling events.
-  - Who benefits: SRE, DevOps.
+    1. Audit events include user_id, timestamp, event_type, source IP, user agent, and correlation id.
+    2. Logs are immutable (append-only) and retention configurable with secure access controls.
+    3. Sensitive fields are redacted or hashed for privacy (PII handling).
+  - Trigger: Any auth-related event.
 
-- FR-012: [DETERMINISTIC] System MUST enforce rate limiting and brute-force protections for auth endpoints.
-  - Description: Multi-layer rate-limiting (per-IP, per-account) with exponential backoff and CAPTCHA/step-up after thresholds.
-  - Default policy (configurable):
-    - Per-IP: 200 requests/min for general endpoints
-    - Authentication attempts: 10 attempts per 10 minutes per IP; 5 failed attempts per 15 minutes per account triggers account lock (FR-007)
-    - After 3 failed login attempts show CAPTCHA or step-up challenge
+- FR-013: [DETERMINISTIC] System MUST meet performance, scalability and availability targets.
+  - Description: Architectural requirements for horizontal scaling, load balancing, and HA deployments.
   - Acceptance Criteria:
-    1. Rate-limiting returns 429 Too Many Requests with Retry-After header when exceeded.
-    2. Brute-force patterns detected and mitigated (temporary blocks, CAPTCHA) within 60 seconds of detection.
-    3. Rate limiting rules are configurable and documented.
-  - Trigger: High request volumes or repeated failed attempts.
-  - Who benefits: Security, Ops.
+    1. System supports 10,000+ concurrent sessions and horizontal scaling with stateless API nodes (session state in DB or token introspection).
+    2. Mean login response <2s for 95% of requests under normal load.
+    3. Availability target 99.9% with failover and backups validated.
+  - Trigger: Production load and traffic patterns.
 
-- FR-013: [DETERMINISTIC] System MUST provide configurable data retention and privacy controls; default retention values provided.
-  - Description: Support configurable retention policies and deletion flows to meet privacy regulations.
-  - Default retention (configurable by tenant/legal):
-    - Soft-delete grace period for user-deletion: 30 days (during which account can be restored)
-    - Audit logs retention: 1 year
-    - Backups retention: 90 days
+- FR-014: [AI-CANDIDATE] System SHOULD support Adaptive / Risk-based Authentication as an optional future capability.
+  - Description: System may score login attempts for risk (device, IP reputation, velocity) and require step-up authentication when score exceeds threshold. This is an AI candidate for anomaly detection and risk scoring.
   - Acceptance Criteria:
-    1. Admins can set retention values and deletion policies; deletions follow soft-delete -> permanent delete after grace period.
-    2. "Right to be forgotten" requests trigger soft-delete and eventual purging per retention settings.
-    3. Data exports for compliance can be generated within 24 hours.
-  - Trigger: Account deletion requests, retention schedule.
-  - Who benefits: Legal, Compliance, End users.
-  - Note: Legal/regulatory confirmation required for region-specific values.
+    1. Risk scoring runs asynchronously and labels high-risk attempts for step-up auth; initial implementation may be rule-based, with a roadmap for ML models.
+    2. Feature must be feature-flagged and evaluated in staging before production.
+    3. Decisions must be auditable and reversible by admins.
+  - Trigger: Suspicious login patterns.
+  - Note: Classify as [AI-CANDIDATE]; require separate design/AI-architecture work.
 
-- FR-014: [AI-CANDIDATE] System SHOULD provide adaptive/risk-based authentication capabilities as an optional/hybrid feature.
-  - Description: Detect anomalous login context (geo, device, velocity) and require step-up authentication or challenge.
+- FR-015: [DETERMINISTIC] System MUST provide administrative controls for account management and investigation.
+  - Description: Admin console or API to view audit logs, unlock/disable accounts, and manage configuration.
   - Acceptance Criteria:
-    1. System can calculate a risk score per login attempt using configurable rules and (optional) ML model.
-    2. For risk score > threshold, system enforces step-up (MFA) or blocks login; thresholds configurable.
-    3. All adaptive decisions are logged with justification and human-reviewable data.
-  - Trigger: Login attempts with suspicious characteristics.
-  - Who benefits: Security team and high-risk user cohorts.
-  - Implementation note: Hybrid pattern — deterministic rules first, ML assistance optional; requires model governance and human-in-the-loop for high-impact actions.
+    1. Admin actions are audited and require RBAC permissions.
+    2. Admin API returns paginated, filterable audit events.
+    3. Admin actions cannot bypass MFA enrollment without documented exception workflows.
+  - Trigger: Security team or administrators.
 
----
+- FR-016: [DETERMINISTIC] System MUST support configurable data retention and privacy controls.
+  - Description: Logs and PII retention follow configurable policies; supports data export and deletion requests to comply with GDPR.
+  - Acceptance Criteria:
+    1. Retention periods configurable and enforced; deletion workflows documented.
+    2. Data export endpoint supports user-requested data exports in machine-readable format.
+    3. Deletion anonymizes or removes PII while preserving required audit trail entries with minimal metadata.
+  - Trigger: Regulatory/operational requirements.
+
+- FR-017: [UNCLEAR] System MUST plan for Future Integrations: SSO / Social Login / Biometric options (scope and requirements to be clarified).
+  - Description: Placeholder for SSO, Social login (Google/Microsoft), and biometric authentication. Requirements and privacy/regulatory constraints need clarification.
+  - Acceptance Criteria:
+    1. Work items created after stakeholder decision with mapped scope and security review.
+    2. No production rollout without privacy/regulatory approval and design for account linking/merging.
 
 ## Use Case Analysis
 
 ### Actors & System Boundary
-- Primary Actor: End User — person attempting to register, authenticate, or manage their account.
-- Secondary Actor: Admin User — support/admin staff who can unlock accounts and manage configurations.
-- System Actor: Authentication System — the system under specification (inside system boundary).
-- External Actors:
-  - Email Service Provider — sends verification and reset emails.
-  - SMS Provider — sends OTP SMS.
-  - API Gateway / Client Applications — rely on tokens issued by the system.
-  - External Identity Provider (IdP/OAuth) — for SSO connectors.
+- Primary Actor: End User — authenticates, manages MFA, resets password.
+- Secondary Actor: Administrator — manages accounts, views audit logs, unlocks accounts.
+- System Actor: API Gateway — validates tokens for downstream services.
+- External Actors: Email Provider, SMS Provider, OAuth/OIDC Identity Providers.
+- System Boundary: "Authentication System" providing REST APIs for registration, login, MFA, token management, admin operations, and token introspection.
 
-System boundary: "Authentication System" contains the registration, login, MFA, token issuance, revocation, audit, admin console, and integration endpoints.
+### Use Case Specifications
 
-### UC-001: Register Account
+#### UC-001: User Registration & Verification
 - Actor(s): End User
-- Goal: Create a verified account and be able to authenticate.
-- Preconditions:
-  - End User has an email address and internet connectivity.
-  - System email service is available.
+- Goal: Create and activate a new account using email verification.
+- Preconditions: Email not already associated with a verified account.
 - Success Scenario:
-  1. User submits registration form with email, password, name.
-  2. System validates email format and password policy.
-  3. System creates a pending user record and issues a verification token.
-  4. System sends verification email via Email Service.
-  5. User clicks verification link; system marks account as Verified and returns success.
+  1. User submits registration form with email, password, name to POST /register.
+  2. System validates input and password policy; creates pending account and generates verification token.
+  3. System sends verification email with token link.
+  4. User clicks link; system validates token and activates account.
+  5. System records audit event "account.registered" and "account.verified".
 - Extensions/Alternatives:
-  - 2a. Invalid email -> system returns 400 "Invalid email format".
-  - 3a. Email already registered -> system returns 409 "Email already registered".
-  - 4a. Email delivery fails -> system queues retry and shows neutral UI message; admin alert if repeated failures.
-- Postconditions:
-  - User account exists and is Verified; user can proceed to login.
-  - Audit log entry created for registration and verification.
+  - 2a. If password fails policy, return 400 with guidance.
+  - 3a. If email provider delivery fails, system retries and logs.
+  - 4a. If token expired, user may request re-send (rate-limited).
+- Postconditions: account.status = Active; verification timestamp stored.
 
 Use Case Diagram
 ```plantuml
@@ -257,75 +246,30 @@ left to right direction
 skinparam packageStyle rectangle
 
 actor "End User" as User
-actor "Email Service" as Email
-
 rectangle "Authentication System" {
-  usecase (Register Account) as UC1
-  usecase (Verify Email) as UC1b
+  usecase (Register) as UC1
+  usecase (Verify Email) as UC2
 }
 
 User --> UC1
-UC1 ..> UC1b : <<include>>
-UC1b --> Email : send verification email
-@enduml
-```
-
-### UC-002: Login (Credential Authentication)
-- Actor(s): End User
-- Goal: Authenticate and obtain an access session (tokens).
-- Preconditions:
-  - User has a verified account and correct credentials (or MFA flow available).
-  - Auth system and token store available.
-- Success Scenario:
-  1. User posts email + password to /login.
-  2. System validates credentials against hashed password.
-  3. If credentials valid and MFA not enabled, system issues access and refresh tokens.
-  4. If MFA enabled, system responds with mfa_required and triggers MFA flow (UC-004).
-  5. System logs successful login and returns tokens.
-- Extensions/Alternatives:
-  - 2a. Invalid credentials -> increment failed counter, return 401.
-  - 2b. Failed attempts exceed lockout threshold -> account locked (UC-006).
-  - 3a. If rate-limited -> 429 Too Many Requests.
-- Postconditions:
-  - Active session created with tokens, and audit log entry for successful auth.
-
-Use Case Diagram
-```plantuml
-@startuml
-left to right direction
-skinparam packageStyle rectangle
-
-actor "End User" as User
-actor "API Gateway" as API
-
-rectangle "Authentication System" {
-  usecase (Login) as UC2
-  usecase (Issue Tokens) as UC2b
-}
-
 User --> UC2
-UC2 ..> UC2b : <<include>>
-UC2b --> API : provide access_token
+UC1 ..> UC2 : <<include>>
 @enduml
 ```
 
-### UC-003: Password Reset (Forgot Password)
+#### UC-002: User Login (with optional MFA)
 - Actor(s): End User
-- Goal: Reset forgotten password securely.
-- Preconditions:
-  - User has access to registered email.
-  - Reset token service operational.
+- Goal: Authenticate and obtain access to protected resources.
+- Preconditions: Account exists and is not locked; email verified.
 - Success Scenario:
-  1. User requests password reset by submitting email to /forgot-password.
-  2. System generates single-use reset token (TTL 1 hour) and sends email.
-  3. User clicks link and provides new password.
-  4. System validates password policy and updates password, invalidates reset token and previous refresh tokens.
-  5. System logs password reset event.
+  1. User submits credentials to POST /login.
+  2. System validates credentials; if invalid, increments failed counter.
+  3. If credentials valid and MFA disabled, system issues access and refresh tokens.
+  4. If MFA enabled, system responds mfa_required and issues MFA challenge (OTP or TOTP); upon verification tokens issued.
 - Extensions/Alternatives:
-  - 2a. Rate limit enforcement triggers 429 for repeated requests.
-  - 3a. Expired/invalid token -> user prompted to request a new reset.
-- Postconditions:
-  - Password updated and previous sessions revoked; audit trail recorded.
+  - 2a. If account locked, return 423 and instructions.
+  - 3a. If rate limit exceeded, return 429.
+- Postconditions: Active session established; audit event "login.success".
 
 Use Case Diagram
 ```plantuml
@@ -334,37 +278,28 @@ left to right direction
 skinparam packageStyle rectangle
 
 actor "End User" as User
-actor "Email Service" as Email
-
 rectangle "Authentication System" {
-  usecase (Request Password Reset) as UC3
-  usecase (Perform Password Reset) as UC3b
+  usecase (Login) as UC_Login
+  usecase (MFA Challenge) as UC_MFA
 }
 
-User --> UC3
-UC3 --> Email : send reset link
-User --> UC3b
-UC3b --> UC3 : <<include>>
+User --> UC_Login
+UC_Login ..> UC_MFA : <<include>>
 @enduml
 ```
 
-### UC-004: MFA Verification
+#### UC-003: Password Reset
 - Actor(s): End User
-- Goal: Verify MFA factor during login or enrollment.
-- Preconditions:
-  - User is enrolled in MFA or in the process of enrolling.
-  - OTP delivery channel available (Email/SMS) or TOTP configured on user's device.
+- Goal: Allow a user to securely reset a forgotten password.
+- Preconditions: User has a verified email.
 - Success Scenario:
-  1. System prompts for OTP/TOTP when required.
-  2. User submits OTP.
-  3. System validates OTP/TOTP within TTL (5 minutes for OTP).
-  4. On success, system issues tokens and logs event.
-- Extensions/Alternatives:
-  - 2a. OTP expired -> returns 400 "OTP expired", allow re-send.
-  - 2b. Repeated failed OTP attempts -> enforce rate-limiting / temporary block (FR-012).
-  - 3a. Use recovery code if OTP unavailable.
-- Postconditions:
-  - Tokens issued or enrollment completed; MFA event logged.
+  1. User requests reset via POST /forgot-password.
+  2. System queues reset email with single-use token.
+  3. User uses link to POST /reset-password with token and new password.
+  4. System validates token and password policy, updates password, invalidates existing refresh tokens, and logs event.
+- Extensions:
+  - 2a. If email not found, system returns 202 to avoid enumeration.
+- Postconditions: Password updated; previous sessions revoked.
 
 Use Case Diagram
 ```plantuml
@@ -373,33 +308,29 @@ left to right direction
 skinparam packageStyle rectangle
 
 actor "End User" as User
-actor "SMS Provider" as SMS
-actor "Email Service" as Email
-
 rectangle "Authentication System" {
-  usecase (MFA Verification) as UC4
+  usecase (Request Password Reset) as UC_Forgot
+  usecase (Reset Password) as UC_Reset
 }
 
-User --> UC4
-UC4 --> SMS : send OTP
-UC4 --> Email : send OTP
+User --> UC_Forgot
+User --> UC_Reset
+UC_Forgot ..> UC_Reset : <<include>>
 @enduml
 ```
 
-### UC-005: Logout / Session Termination
+#### UC-004: Enroll and Use MFA
 - Actor(s): End User
-- Goal: Terminate active session(s) immediately.
-- Preconditions:
-  - User has an active session with valid tokens.
+- Goal: Enroll and use MFA to secure account.
+- Preconditions: User is authenticated and email verified.
 - Success Scenario:
-  1. User calls /logout with current access token.
-  2. System invalidates refresh token(s) and revokes session entry.
-  3. System returns 200 OK and logs logout event.
-- Extensions/Alternatives:
-  - 1a. If token already expired, system returns 200 and logs attempted logout.
-  - 2a. Admin or user may revoke all sessions via account settings.
-- Postconditions:
-  - Tokens revoked and subsequent API calls with revoked tokens return 401.
+  1. User chooses MFA method from settings and initiates enrollment.
+  2. System issues verification OTP or shows TOTP secret for provisioning.
+  3. User submits verification code; system validates and marks method as active.
+  4. On subsequent login, MFA is required and must be verified before issuing tokens.
+- Extensions:
+  - 2a. Provide recovery/backout flow (backup codes) for lost devices.
+- Postconditions: MFA method active; audit event recorded.
 
 Use Case Diagram
 ```plantuml
@@ -408,31 +339,27 @@ left to right direction
 skinparam packageStyle rectangle
 
 actor "End User" as User
-actor "API Gateway" as API
-
 rectangle "Authentication System" {
-  usecase (Logout) as UC5
+  usecase (Enroll MFA) as UC_Enroll
+  usecase (Verify MFA) as UC_Verify
 }
 
-User --> UC5
-UC5 --> API : revoke tokens
+User --> UC_Enroll
+UC_Enroll ..> UC_Verify : <<include>>
 @enduml
 ```
 
-### UC-006: Account Lockout and Unlock
-- Actor(s): End User, Admin User
-- Goal: Protect account from brute-force; allow safe unlock.
-- Preconditions:
-  - Failed login counters are tracked.
+#### UC-005: Token Validation for API Gateway
+- Actor(s): API Gateway
+- Goal: Validate access token for downstream services.
+- Preconditions: Token presented in Authorization header.
 - Success Scenario:
-  1. System locks account after threshold (5 failed attempts in 15 minutes).
-  2. User requests unlock via "Unlock account" link sent to email.
-  3. User clicks link; system verifies token and unlocks account.
-  4. Admin may unlock via admin console immediately.
-- Extensions/Alternatives:
-  - 2a. If unlock token expired -> require admin unlock or request new unlock email.
-- Postconditions:
-  - Account status set to Active; unlock event logged.
+  1. API Gateway calls /introspect or validates JWT signature locally.
+  2. Authentication System returns token validity, scopes, and user_id.
+  3. API Gateway allows or denies access based on validation.
+- Extensions:
+  - 1a. If token revoked, return invalid/401.
+- Postconditions: Request allowed or denied; token lookup audited.
 
 Use Case Diagram
 ```plantuml
@@ -440,97 +367,54 @@ Use Case Diagram
 left to right direction
 skinparam packageStyle rectangle
 
-actor "End User" as User
-actor "Admin User" as Admin
-actor "Email Service" as Email
-
+actor "API Gateway" as Gateway
 rectangle "Authentication System" {
-  usecase (Account Lockout) as UC6
-  usecase (Account Unlock) as UC6b
+  usecase (Validate Token) as UC_Validate
 }
 
-User --> UC6
-UC6 --> Email : send unlock link
-Admin --> UC6b : unlock account
-@enduml
-```
-
-### UC-007: Token Validation by API Gateway
-- Actor(s): API Gateway (system actor)
-- Goal: Validate tokens for incoming API requests.
-- Preconditions:
-  - API Gateway has the system's JWKS or introspection credentials.
-- Success Scenario:
-  1. API Gateway receives request with access token.
-  2. Gateway validates token signature via JWKS or calls introspection endpoint.
-  3. On valid token, Gateway forwards request to backend with user claims.
-  4. Invalid token -> Gateway returns 401 to client.
-- Extensions/Alternatives:
-  - 2a. If introspection endpoint unreachable -> Gateway fails open/closed per policy (default: fail closed).
-- Postconditions:
-  - Downstream services receive authenticated requests; validation events logged.
-
-Use Case Diagram
-```plantuml
-@startuml
-left to right direction
-skinparam packageStyle rectangle
-
-actor "API Gateway" as API
-actor "Authentication System" as Auth
-
-rectangle "Authentication System" {
-  usecase (Validate Token) as UC7
-}
-
-API --> UC7
-UC7 --> API : token valid/invalid
+Gateway --> UC_Validate
 @enduml
 ```
 
 ## Risks & Mitigations (Top 5)
-- Risk: Brute-force attacks causing account compromise.
-  - Mitigation: FR-012 rate limiting, FR-007 lockout, CAPTCHA and monitoring alerts.
-- Risk: Credential leakage via weak hashing or storage.
-  - Mitigation: FR-009 Argon2id, no plaintext logs, secrets in vault.
-- Risk: MFA SMS/Email delivery failures degrade login experience.
-  - Mitigation: Multiple delivery providers, retry queues, fallback to TOTP.
-- Risk: Token replay or hijacking.
-  - Mitigation: Short-lived access tokens, refresh token rotation and revocation, TLS everywhere.
-- Risk: Regulatory non-compliance (data retention/privacy).
-  - Mitigation: FR-013 configurable retention, legal verification, data export and deletion workflows.
+- Brute-force attacks -> Mitigation: Per-IP and per-account rate-limiting, account lockout, progressive delays, and monitoring alerts.
+- Password breaches -> Mitigation: Argon2id password hashing, no plaintext storage, breach detection and forced resets on compromise.
+- Session hijacking -> Mitigation: Short-lived access tokens, refresh token rotation, TLS enforced, token revocation/introspection.
+- MFA circumvention / recovery abuse -> Mitigation: Secure enrollment flows, backup codes, admin-review for recovery requests, fraud detection.
+- SMS/Email delivery failure or abuse -> Mitigation: Provider redundancy, delivery retries, fallback (email -> app), and monitoring for spam/abuse.
 
 ## Constraints & Assumptions (Top 5)
-- Constraint: System must integrate with existing Email and SMS providers (availability SLAs).
-- Constraint: All network traffic uses TLS; internal trust uses mTLS for introspection.
-- Assumption: Default TTLs and thresholds (listed in FRs) are acceptable; these are configurable but must be confirmed by legal/security.
-- Assumption: Argon2id support is available in runtime environment; fallback to bcrypt is allowed with documented parameterization.
-- Assumption: Single-tenant default policy; multi-tenant variations require additional configuration.
+- Constraint: All traffic must use TLS 1.2+; no plaintext transport allowed.
+- Assumption: Email provider and SMS provider integrations will be available and contractually approved by DevOps/security.
+- Constraint: Secrets and keys must be stored in a managed secret store (e.g., Azure Key Vault, AWS Secrets Manager).
+- Assumption: Downstream services (API Gateway) will adopt the token introspection or public JWKs for JWT verification.
+- Constraint: Regulatory/data residency restrictions (GDPR) may require data localization; retention defaults must be configurable.
 
----
+-----
 
-List of rules used by the workflow
+Console Output (per workflow instructions)
+
+Rules used by the workflow:
 - ai-assistant-usage-policy
 - code-anti-patterns
 - dry-principle-guidelines
-- uml-text-code-standards
-- markdown-styleguide
-- security-standards-owasp
-- performance-best-practices
 - iterative-development-guide
 - language-agnostic-standards
+- markdown-styleguide
+- performance-best-practices
+- security-standards-owasp
+- uml-text-code-standards
 
 Evaluation Scores
+| Criterion | Score (1-4) | Notes |
+|----------:|:-----------:|-------|
+| Completeness | 4 | All BRD sections mapped; FRs and UCs present |
+| Testability | 4 | Measurable acceptance criteria for FRs |
+| Clarity | 4 | Requirements use MUST and explicit triggers/outcomes |
+| Security Alignment | 4 | OWASP and crypto requirements specified |
+| Implementation Feasibility | 3 | Some design decisions (token revocation strategy, SMS provider, SSO scope) require clarification |
 
-| Category                             | Score (%) |
-|--------------------------------------|-----------:|
-| Template Structure                   |        100 |
-| Content Patterns (completeness)      |         98 |
-| Cross-Reference Traceability         |         98 |
-| Use Case Coverage & Diagrams         |        100 |
-| Testability & Acceptance Criteria    |         99 |
-| Average                              |   99.0     |
+Average Score: 3.8
 
-Evaluation summary
-The specification fully follows the provided template and includes end-to-end FR-XXX entries, measurable acceptance criteria, seven complete use cases with PlantUML diagrams, and traceability to business goals. Defaults for TTLs, lockout thresholds, and retention policies are set and configurable; legal/regulatory confirmation is recommended for regional variations.
-
+Evaluation summary:
+The specification comprehensively translates the BRD into testable, traceable functional requirements and use cases. Security, performance, and integration needs are explicit. Remaining clarifications are targeted (token revocation approach, SMS/compliance, SSO scope) and do not block deterministic implementation of core features.

@@ -488,24 +488,69 @@ UC7 --> API : token valid/invalid
 @enduml
 ```
 
-## Risks & Mitigations (Top 5)
-- Risk: Brute-force attacks causing account compromise.
-  - Mitigation: FR-012 rate limiting, FR-007 lockout, CAPTCHA and monitoring alerts.
-- Risk: Credential leakage via weak hashing or storage.
-  - Mitigation: FR-009 Argon2id, no plaintext logs, secrets in vault.
-- Risk: MFA SMS/Email delivery failures degrade login experience.
-  - Mitigation: Multiple delivery providers, retry queues, fallback to TOTP.
-- Risk: Token replay or hijacking.
-  - Mitigation: Short-lived access tokens, refresh token rotation and revocation, TLS everywhere.
-- Risk: Regulatory non-compliance (data retention/privacy).
-  - Mitigation: FR-013 configurable retention, legal verification, data export and deletion workflows.
+## Color Scheme
 
-## Constraints & Assumptions (Top 5)
-- Constraint: System must integrate with existing Email and SMS providers (availability SLAs).
-- Constraint: All network traffic uses TLS; internal trust uses mTLS for introspection.
-- Assumption: Default TTLs and thresholds (listed in FRs) are acceptable; these are configurable but must be confirmed by legal/security.
-- Assumption: Argon2id support is available in runtime environment; fallback to bcrypt is allowed with documented parameterization.
-- Assumption: Single-tenant default policy; multi-tenant variations require additional configuration.
+### Purpose
+The project uses a red and blue color scheme for brand identity, accents, and UI roles.
+
+### Palette
+- Primary Red: #FF0000 (rgb(255,0,0))
+  - Red Light: #FF6666 (rgb(255,102,102))
+  - Red Dark:  #990000 (rgb(153,0,0))
+- Primary Blue: #0000FF (rgb(0,0,255))
+  - Blue Light: #6666FF (rgb(102,102,255))
+  - Blue Dark:  #000099 (rgb(0,0,153))
+
+### Usage guidelines
+- Roles:
+  - Red = primary accent for CTAs, destructive actions, and alerts; use sparingly to draw attention.
+  - Blue = primary brand color for navigation, links, highlights, and primary backgrounds.
+- Recommended pairings:
+  - Primary Blue (text/icons) on light backgrounds for navigation and links.
+  - Red (accent) with neutral backgrounds for CTAs and alerts.
+  - Use Light variants for subtle backgrounds/cards; Dark variants for text or high-emphasis controls.
+- When to use variants:
+  - Use Dark variants for any text-on-color scenarios to meet contrast.
+  - Use Light variants for backgrounds, subtle dividers, or disabled states.
+
+### Accessibility
+- Follow WCAG contrast guidance: aim for at least 4.5:1 for normal text and 3:1 for large text.
+- Test text color on its intended background; do not assume sufficiency based on hue alone.
+- Prefer darker variants for text-on-color (e.g., use Red Dark or Blue Dark for text over light backgrounds).
+- Avoid placing low-contrast red text on blue backgrounds or vice versa; these combinations commonly fail contrast checks and are hard to read.
+
+### Tokens / CSS variables examples
+- --color-red: #FF0000;
+- --color-red-light: #FF6666;
+- --color-red-dark: #990000;
+- --color-blue: #0000FF;
+- --color-blue-light: #6666FF;
+- --color-blue-dark: #000099;
+- --color-bg: #FFFFFF;
+- --color-text: #111111;
+
+### Examples
+- Buttons:
+  - Primary CTA: background --color-red; text: --color-bg (use Red sparingly for primary destructive CTAs).
+  - Primary Nav / Brand button: background --color-blue; text: --color-bg.
+  - Hover: use corresponding dark variant (e.g., --color-red-dark, --color-blue-dark).
+- Alerts:
+  - Error: background --color-red-light; border or icon: --color-red-dark; text: dark text for contrast.
+  - Info: background --color-blue-light; icon: --color-blue-dark.
+- Links:
+  - Standard links: color --color-blue; hover: --color-blue-dark; visited: slight desaturation of blue.
+- Backgrounds:
+  - Cards / surfaces: use --color-bg or --color-blue-light for branded sections; ensure text contrast.
+- Hover states:
+  - Apply slight darkening (use dark variant) and ensure focus outlines remain visible and high-contrast.
+
+### Do / Don't (quick rules)
+- Do use Blue for links, primary navigation, and brand elements.
+- Do use Red for CTAs, error states, and alerts — sparingly and intentionally.
+- Do use darker variants for text; always validate contrast before release.
+- Don't use red text on blue backgrounds or blue text on red backgrounds.
+- Don't rely solely on color to convey state; pair with icons or text labels for accessibility.
+- Don't use light variants for small text or low-contrast UI elements.
 
 ---
 
@@ -533,4 +578,3 @@ Evaluation Scores
 
 Evaluation summary
 The specification fully follows the provided template and includes end-to-end FR-XXX entries, measurable acceptance criteria, seven complete use cases with PlantUML diagrams, and traceability to business goals. Defaults for TTLs, lockout thresholds, and retention policies are set and configurable; legal/regulatory confirmation is recommended for regional variations.
-
